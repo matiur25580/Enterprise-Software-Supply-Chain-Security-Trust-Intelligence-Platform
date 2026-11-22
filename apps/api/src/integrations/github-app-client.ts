@@ -105,15 +105,7 @@ export async function getGitHubRepositorySnapshot(input:{installationId:number;o
 
 export interface GitHubSbomFile { path:string;sha:string;size:number;content:Buffer; }
 const MAX_SBOM_FILE_BYTES=1024*1024;
-const MAX_SBOM_CANDIDATES=10;
 const MAX_SBOM_TOTAL_BYTES=5*1024*1024;
-export function isGitHubSbomCandidatePath(path:string):boolean {
- const normalized=path.toLowerCase();
- const fileName=normalized.split("/").pop()??"";
- return fileName.endsWith(".cdx.json")||fileName.endsWith(".spdx.json")||
-  fileName.endsWith(".sbom.json")||fileName==="sbom.json"||fileName==="bom.json"||
-  fileName.endsWith(".cyclonedx.json");
-}
 export async function getGitHubRepositorySbomFiles(input:{installationId:number;owner:string;repository:string;commitSha:string}):Promise<{files:GitHubSbomFile[];candidateCount:number;truncated:boolean}> {
  const token=await createInstallationToken(input.installationId);
  const tree=await githubRequest<{truncated:boolean;tree:Array<{path:string;mode:string;type:string;sha:string;size?:number}>}>(`/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/git/trees/${encodeURIComponent(input.commitSha)}?recursive=1`,token);
