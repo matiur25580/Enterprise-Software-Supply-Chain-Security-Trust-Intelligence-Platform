@@ -6,6 +6,7 @@ import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { accessRouter } from "./routes/access.js";
 import { authRouter } from "./routes/auth.js";
+import { projectsRouter } from "./routes/projects.js";
 
 export const app: Express = express();
 app.disable("x-powered-by");
@@ -20,6 +21,7 @@ app.use(pinoHttp({ logger }));
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1", accessRouter);
+app.use("/api/v1", projectsRouter);
 
 app.get("/api/v1/health", (_request, response) => {
   response.status(200).json({
@@ -36,8 +38,6 @@ app.use((_request, response) => {
 const errorHandler: ErrorRequestHandler = (error: unknown, _request, response, _next) => {
   logger.error({ err: error }, "Unhandled request error");
   if (response.headersSent) return;
-  response.status(500).json({
-    error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." }
-  });
+  response.status(500).json({ error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." } });
 };
 app.use(errorHandler);
