@@ -4,7 +4,7 @@
 
 ChainProof helps engineering and security teams understand, verify, govern, and continuously improve the integrity of the software they ship. It brings software inventory, vulnerability intelligence, build provenance, policy decisions, and release evidence into one auditable workflow.
 
-> **Project status:** Early implementation · Enterprise foundation, security command center, persistent identity, tenant-scoped project registry, GitHub App repository linking, and bounded SBOM ingestion are implemented in draft milestone branches. Dashboard metrics remain illustrative sample data.
+> **Project status:** Early implementation · Enterprise foundation, security command center, persistent identity, tenant-scoped project registry, GitHub App repository linking, bounded SBOM ingestion, and initial OSV vulnerability intelligence are implemented in draft milestone branches. Dashboard metrics remain illustrative sample data.
 
 ## Product vision
 
@@ -39,7 +39,7 @@ Modern software delivery depends on a complex graph of open-source packages, bui
 - Every authenticated request checks persisted session, user, organization, and membership; effective roles come from active membership state.
 - Tenant-scoped project registry with bounded listing, create/read/update/archive operations, organization-scoped MongoDB filters, strict validation, and audit events.
 - GitHub App installation verification, selected-repository discovery, tenant-safe project linking, and installation lifecycle webhook reconciliation.
-- Bounded project-scoped CycloneDX 1.x and SPDX 2.x JSON SBOM ingestion, normalized component metadata, SHA-256 duplicate detection, and audit events.
+- Bounded project-scoped CycloneDX 1.x and SPDX 2.x JSON SBOM ingestion, normalized component metadata, SHA-256 duplicate detection, and audit events.\n- OSV.dev vulnerability scanning by versioned PURL, advisory detail enrichment, CVSS v3 scoring, fixed-version recommendations, and tenant-scoped findings.
 - Authentication routes use strict Zod validation and IP-based rate limiting. MongoDB registration transactions require a replica-set deployment.
 - MFA, SSO, email verification, password recovery, invitations, source-control provider connections, and SBOM ingestion remain future work.
 
@@ -117,4 +117,9 @@ Verified GitHub App installations can discover repositories and link selected re
 
 ## SBOM ingestion foundation
 
-Projects accept JSON CycloneDX 1.x and SPDX 2.x SBOMs up to 2 MiB. ChainProof validates and normalizes up to 5,000 components per document, stores package identifiers and license metadata, fingerprints the original bytes with SHA-256, rejects duplicate uploads within a project, and emits an audit event. The raw SBOM is not retained. See [SBOM ingestion architecture](docs/architecture/SBOM-INGESTION.md). This is an initial synchronous ingestion slice; asynchronous processing, full dependency graph persistence, schema conformance, and vulnerability enrichment remain future work.
+Projects accept JSON CycloneDX 1.x and SPDX 2.x SBOMs up to 2 MiB. ChainProof validates and normalizes up to 5,000 components per document, stores package identifiers and license metadata, fingerprints the original bytes with SHA-256, rejects duplicate uploads within a project, and emits an audit event. The raw SBOM is not retained. See [SBOM ingestion architecture](docs/architecture/SBOM-INGESTION.md). This is an initial synchronous ingestion slice; asynchronous processing, full dependency graph persistence, schema conformance, EPSS/KEV/NVD enrichment, and scheduled rescans remain future work.
+
+
+## Vulnerability intelligence foundation
+
+ChainProof can scan an ingested project SBOM against OSV.dev using versioned package URLs. The integration batches package queries, fetches full advisory records, maps advisories back to individual components, derives CVSS v3.0/v3.1 base scores where vectors are supplied, and stores affected/fixed version data with remediation guidance. Tenant-scoped scan and findings APIs are available. Scans are bounded and fail closed on upstream errors; unsupported CVSS v4 vectors are not guessed. See [Vulnerability intelligence architecture](docs/architecture/VULNERABILITY-INTELLIGENCE.md).
