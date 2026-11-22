@@ -8,7 +8,6 @@ const userSchema = new Schema({
   passwordHash: { type: String, required: true, select: false },
   status: { type: String, enum: ["active", "disabled"], default: "active", required: true }
 }, { timestamps: true, versionKey: false });
-userSchema.index({ email: 1 }, { unique: true, name: "users_email_unique" });
 
 const organizationSchema = new Schema({
   organizationId: { type: String, required: true, unique: true, immutable: true },
@@ -16,7 +15,6 @@ const organizationSchema = new Schema({
   slug: { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 63 },
   status: { type: String, enum: ["active", "suspended"], default: "active", required: true }
 }, { timestamps: true, versionKey: false });
-organizationSchema.index({ slug: 1 }, { unique: true, name: "organizations_slug_unique" });
 
 const membershipSchema = new Schema({
   membershipId: { type: String, required: true, unique: true, immutable: true },
@@ -39,7 +37,6 @@ const sessionSchema = new Schema({
   lastUsedAt: { type: Date, default: null },
   revokedAt: { type: Date, default: null }
 }, { timestamps: true, versionKey: false });
-sessionSchema.index({ sessionId: 1 }, { unique: true, name: "sessions_session_id_unique" });
 sessionSchema.index({ refreshTokenHash: 1 }, { unique: true, name: "sessions_refresh_hash_unique" });
 sessionSchema.index({ userId: 1, organizationId: 1, revokedAt: 1 }, { name: "sessions_user_org_active" });
 sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, name: "sessions_expiry_ttl" });
