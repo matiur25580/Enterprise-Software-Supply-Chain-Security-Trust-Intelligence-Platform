@@ -89,15 +89,22 @@ export async function login(input: { email: string; password: string; organizati
 
   const sessionId = randomUUID();
   const refreshToken = createRefreshToken();
-  await IdentitySession.create({
-    sessionId, userId: user.userId, organizationId: organization.organizationId,
-    refreshTokenHash: hashRefreshToken(refreshToken), previousRefreshTokenHashes: [],
-    expiresAt: new Date(Date.now() + REFRESH_TTL_MS)
-  });
-  await persistAudit({
-    organizationId: organization.organizationId, actorUserId: user.userId,
-    action: "identity.login_succeeded", targetType: "session", targetId: sessionId
-  });
+  const dbSession = await mongoose.startSession();
+  try {
+    await dbSession.withTransaction(async () => {
+      await IdentitySession.create([{
+        sessionId, userId: user.userId, organizationId: organization.organizationId,
+        refreshTokenHash: hashRefreshToken(refreshToken), previousRefreshTokenHashes: [],
+        expiresAt: new Date(Date.now() + REFRESH_TTL_MS)
+      }], { session: dbSession });
+      await persistAudit({
+        organizationId: organization.organizationId, actorUserId: user.userId,
+        action: "identity.login_succeeded", targetType: "session", targetId: sessionId
+      }, dbSession);
+    });
+  } finally {
+    await dbSession.endSession();
+  }
   return {
     user: { id: user.userId, email: user.email, displayName: user.displayName },
     organization: { id: organization.organizationId, name: organization.name, slug: organization.slug },
