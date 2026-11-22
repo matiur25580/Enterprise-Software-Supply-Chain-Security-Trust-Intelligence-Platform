@@ -11,6 +11,10 @@ import { requirePermission } from "../middleware/authorize.js";
 export const projectsRouter: ExpressRouter = Router();
 const route = "/organizations/:organizationId/projects";
 
+function routeParameter(value: string | string[] | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
 projectsRouter.get(route,
   authenticate, requireOrganizationScope, requirePermission("projects:read"),
   async (request, response, next) => {
@@ -63,8 +67,13 @@ projectsRouter.post(route,
 projectsRouter.get(`${route}/:projectId`,
   authenticate, requireOrganizationScope, requirePermission("projects:read"),
   async (request, response, next) => {
+    const projectId = routeParameter(request.params.projectId);
+    if (!projectId) {
+      response.status(404).json({ error: { code: "RESOURCE_NOT_FOUND", message: "The requested project was not found." } });
+      return;
+    }
     try {
-      const project = await Project.findOne(projectTenantFilter(request.auth!.orgId, request.params.projectId)).lean();
+      const project = await Project.findOne(projectTenantFilter(request.auth!.orgId, projectId)).lean();
       if (!project) {
         response.status(404).json({ error: { code: "RESOURCE_NOT_FOUND", message: "The requested project was not found." } });
         return;
@@ -77,6 +86,11 @@ projectsRouter.get(`${route}/:projectId`,
 projectsRouter.patch(`${route}/:projectId`,
   authenticate, requireOrganizationScope, requirePermission("projects:write"),
   async (request, response, next) => {
+    const projectId = routeParameter(request.params.projectId);
+    if (!projectId) {
+      response.status(404).json({ error: { code: "RESOURCE_NOT_FOUND", message: "The requested project was not found." } });
+      return;
+    }
     const parsed = updateProjectSchema.safeParse(request.body);
     if (!parsed.success) {
       response.status(400).json({ error: { code: "INVALID_REQUEST", message: "The request is invalid.", fields: parsed.error.flatten().fieldErrors } });
@@ -85,7 +99,7 @@ projectsRouter.patch(`${route}/:projectId`,
     try {
       const organizationId = request.auth!.orgId;
       const project = await Project.findOneAndUpdate(
-        projectTenantFilter(organizationId, request.params.projectId),
+        projectTenantFilter(organizationId, projectId),
         { $set: { ...parsed.data, updatedByUserId: request.auth!.sub } },
         { new: true, runValidators: true }
       );
