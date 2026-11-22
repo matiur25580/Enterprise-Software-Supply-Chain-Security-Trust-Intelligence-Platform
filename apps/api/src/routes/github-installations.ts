@@ -226,7 +226,7 @@ githubInstallationsRouter.post("/organizations/:organizationId/projects/:project
    if(!stillActive)throw new GitHubAppError(409,"The GitHub installation became inactive during SBOM discovery.");
    const ingested:Array<Record<string,unknown>>=[];
    const duplicates:Array<{path:string;sbomId:string|null}>=[];
-   const skipped:Array<{path:string;reason:string}>=[];
+   const skipped:Array<{path:string;reason:string}>=discovery.skippedCandidates.map(item=>({...item}));
    for(const file of discovery.files){
     let parsed:ReturnType<typeof parseSbomDocument>;
     try{parsed=parseSbomDocument(file.content);}catch(error){skipped.push({path:file.path,reason:error instanceof Error?error.message:"Unsupported SBOM document."});continue;}
