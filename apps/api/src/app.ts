@@ -9,6 +9,7 @@ import { authRouter } from "./routes/auth.js";
 import { projectsRouter } from "./routes/projects.js";
 import { githubWebhooksRouter } from "./routes/github-webhooks.js";
 import { githubInstallationsRouter } from "./routes/github-installations.js";
+import { sbomsRouter } from "./routes/sboms.js";
 
 export const app: Express = express();
 app.disable("x-powered-by");
@@ -20,6 +21,7 @@ app.use(cors({
 }));
 app.use("/api/v1/webhooks", githubWebhooksRouter);
 app.use("/api/v1/integrations/github", githubInstallationsRouter);
+app.use("/api/v1", sbomsRouter);
 app.use(express.json({ limit: "1mb", strict: true }));
 app.use(pinoHttp({ logger }));
 
