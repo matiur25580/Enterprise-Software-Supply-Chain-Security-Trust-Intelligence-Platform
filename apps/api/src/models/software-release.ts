@@ -22,7 +22,13 @@ const softwareReleaseSchema = new Schema({
   version: { type: String, required: true, maxlength: 128, immutable: true },
   artifactSha256: { type: String, required: true, match: /^[a-f0-9]{64}$/i, immutable: true },
   provenance: { type: provenanceSchema, required: true, immutable: true },
-  provenanceVerification: { type: String, enum: ["not_verified"], default: "not_verified", required: true, immutable: true },
+  provenanceVerification: { type: String, enum: ["verified", "failed", "untrusted_key", "not_provided"], required: true, immutable: true },
+  attestationVerification: {
+    keyId: { type: String, default: null, maxlength: 128 },
+    envelopeSha256: { type: String, default: null, match: /^[a-f0-9]{64}$/ },
+    verifiedAt: { type: Date, default: null },
+    reasons: { type: [{ type: String, maxlength: 500 }], default: [] }
+  },
   vulnerabilitySummary: {
     critical: { type: Number, required: true, min: 0 },
     high: { type: Number, required: true, min: 0 },
