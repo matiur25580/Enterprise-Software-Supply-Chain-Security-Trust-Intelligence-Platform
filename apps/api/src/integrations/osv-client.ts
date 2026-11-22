@@ -116,6 +116,6 @@ export async function scanComponentsWithOsv(components:NormalizedSbomComponent[]
  if(allIds.length>MAX_VULNERABILITIES)throw new Error("OSV returned more findings than the scan safety limit.");
  const details=await fetchDetails(allIds),findings:OsvFinding[]=[];
  for(const [purl,ids] of idsByPackage)for(const id of ids){const detail=details.get(id);if(detail)findings.push(normalizeVulnerability(detail,purl));}
- return {findings,scannedPackages:packages.length,skippedPackages:components.length-packages.length,vulnerabilityCount:findings.length};
+ return {findings,scannedPackages:packages.length,skippedPackages:components.length-scannableComponents,vulnerabilityCount:findings.length};
 }
 export const osvLimits={maxPackages:MAX_PACKAGES,maxVulnerabilities:MAX_VULNERABILITIES,maxFindings:MAX_FINDINGS,detailConcurrency:DETAIL_CONCURRENCY};
