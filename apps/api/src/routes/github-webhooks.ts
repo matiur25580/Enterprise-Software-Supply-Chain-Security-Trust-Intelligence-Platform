@@ -1,4 +1,4 @@
-import { Router, type Router as ExpressRouter } from "express";
+import express, { Router, type Router as ExpressRouter } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { env } from "../config/env.js";
 import { GitHubWebhookDelivery } from "../models/github-webhook-delivery.js";
@@ -18,11 +18,7 @@ githubWebhooksRouter.post("/github",
     }
     next();
   },
-  (request: Request, response: Response, next: NextFunction) => {
-    import("express").then(({ default: express }) => {
-      express.raw({ type: "application/json", limit: "1mb" })(request, response, next);
-    }).catch(next);
-  },
+  express.raw({ type: "application/json", limit: "1mb" }),
   async (request: Request, response: Response, next: NextFunction) => {
     const rawBody = request.body;
     if (!Buffer.isBuffer(rawBody)) {
