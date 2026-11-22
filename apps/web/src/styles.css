@@ -244,3 +244,6 @@ button { cursor: pointer; }
 .github-select-label select { width:100%; min-width:0; height:36px; padding:0 9px; color:#46566e; border:1px solid #e1e7ef; border-radius:7px; background:#fbfcfe; font:inherit; font-size:10px; }
 .github-repository-picker { display:grid; gap:9px; padding-top:10px; border-top:1px solid #f0f2f6; }
 @media(max-width:640px) { .github-connect-actions { flex-direction:column; }.github-connect-actions button,.github-repository-picker button { width:100%; } }
+
+.repository-sync-state { color:#8794a6; font-size:8px; white-space:nowrap; }
+.linked-repository-row { flex-wrap:wrap; }
