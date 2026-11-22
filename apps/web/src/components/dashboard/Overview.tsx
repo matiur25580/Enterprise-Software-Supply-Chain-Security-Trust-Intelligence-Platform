@@ -1,6 +1,6 @@
 import {
   ArrowRight, ArrowUpRight, Check, ChevronDown, CircleDot,
-  ExternalLink, FileCheck2, GitBranch, ShieldAlert, ShieldCheck,
+  Clock3, ExternalLink, FileCheck2, GitBranch, ShieldAlert, ShieldCheck,
   TriangleAlert
 } from "lucide-react";
 import { MetricCard } from "./MetricCard";
