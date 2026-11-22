@@ -7,7 +7,8 @@ type Project = {
 };
 type RepositoryLink = {
   repositoryId: number; fullName: string; htmlUrl: string; defaultBranch: string;
-  isPrivate: boolean; status: "active" | "suspended" | "removed"; installationId: number;\n  syncStatus?: "never" | "syncing" | "succeeded" | "failed"; lastSyncedAt?: string | null; lastSyncedCommitSha?: string | null; lastSyncedCommitAt?: string | null; syncError?: string | null;
+  isPrivate: boolean; status: "active" | "suspended" | "removed"; installationId: number;
+  syncStatus?: "never" | "syncing" | "succeeded" | "failed"; lastSyncedAt?: string | null; lastSyncedCommitSha?: string | null; lastSyncedCommitAt?: string | null; syncError?: string | null;
 };
 type Session = {
   accessToken: string; refreshToken: string; expiresIn: number;
@@ -191,7 +192,19 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
     finally { setSaving(false); }
   }
 
-  async function syncRepository(repositoryId: number) {\n    if (!session || !selected) return;\n    setSaving(true); setError(""); setNotice("");\n    try {\n      const org = encodeURIComponent(session.organization.id), project = encodeURIComponent(selected.projectId);\n      const result = await api<{ fullName: string; defaultBranch: string; lastSyncedCommitSha: string; syncStatus: string }>(`/integrations/github/organizations/${org}/projects/${project}/repositories/${repositoryId}/sync`, session.accessToken, { method: "POST" });\n      await loadLinks(session, selected.projectId);\n      setNotice(`Synced ${result.fullName} · ${result.defaultBranch} · ${result.lastSyncedCommitSha.slice(0, 12)}.`);\n    } catch (cause) { setError(cause instanceof Error ? cause.message : "Repository sync failed."); await loadLinks(session, selected.projectId).catch(() => undefined); }\n    finally { setSaving(false); }\n  }\n\n  async function connectGitHubApp() {
+  async function syncRepository(repositoryId: number) {
+    if (!session || !selected) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const org = encodeURIComponent(session.organization.id), project = encodeURIComponent(selected.projectId);
+      const result = await api<{ fullName: string; defaultBranch: string; lastSyncedCommitSha: string; syncStatus: string }>(`/integrations/github/organizations/${org}/projects/${project}/repositories/${repositoryId}/sync`, session.accessToken, { method: "POST" });
+      await loadLinks(session, selected.projectId);
+      setNotice(`Synced ${result.fullName} · ${result.defaultBranch} · ${result.lastSyncedCommitSha.slice(0, 12)}.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Repository sync failed."); await loadLinks(session, selected.projectId).catch(() => undefined); }
+    finally { setSaving(false); }
+  }
+
+  async function connectGitHubApp() {
     if (!session) return;
     setError(""); setNotice("");
     try {
