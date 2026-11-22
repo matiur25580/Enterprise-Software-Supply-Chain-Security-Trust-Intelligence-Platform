@@ -134,6 +134,11 @@ githubInstallationsRouter.post("/organizations/:organizationId/projects/:project
     {$set:{projectId,installationId:parsed.data.installationId,ownerLogin,name:providerRepository.name,fullName:providerRepository.full_name,htmlUrl:providerRepository.html_url,defaultBranch:providerRepository.default_branch,isPrivate:providerRepository.private,status:"active",linkedByUserId:request.auth!.sub}},
     {new:true,upsert:true,runValidators:true,setDefaultsOnInsert:true}
    );
+   const stillActive=await GitHubInstallation.exists({organizationId,installationId:parsed.data.installationId,status:"active"});
+   if(!stillActive){
+    await GitHubRepositoryLink.updateOne({_id:linked._id,status:"active"},{$set:{status:"suspended"}});
+    response.status(409).json({error:{code:"INSTALLATION_STATE_CHANGED",message:"The GitHub installation changed state while linking. Refresh and retry."}});return;
+   }
    await AuditEvent.create({eventId:randomUUID(),organizationId,actorUserId:request.auth!.sub,action:"integration.github_repository_linked",targetType:"github_repository",targetId:String(providerRepository.id),metadata:{projectId,installationId:parsed.data.installationId,fullName:providerRepository.full_name}});
    response.status(201).json({data:linked});
   }catch(error){
