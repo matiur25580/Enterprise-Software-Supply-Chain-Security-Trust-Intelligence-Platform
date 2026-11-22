@@ -9,6 +9,9 @@ import {GitHubInstallState,GitHubInstallation} from "../models/github-installati
 import {Membership,Organization,User,AuditEvent} from "../models/identity.js";
 import {createGitHubInstallState,verifyGitHubInstallState} from "../integrations/github-install-state.js";
 import {GitHubAppError,listGitHubInstallationRepositories,verifyGitHubInstallation} from "../integrations/github-app-client.js";
+import {Project} from "../models/project.js";
+import {GitHubRepositoryLink} from "../models/github-repository-link.js";
+import {linkRepositorySchema,repositoryBelongsToInstallation} from "../integrations/github-repository-linking.js";
 export const githubInstallationsRouter:ExpressRouter=Router();
 githubInstallationsRouter.post("/organizations/:organizationId/installations/start",
  authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
@@ -89,5 +92,72 @@ githubInstallationsRouter.get("/organizations/:organizationId/installations/:ins
    if(error instanceof GitHubAppError){const status=error.status===503?503:error.status===403?403:error.status===404?404:502;response.status(status).json({error:{code:"GITHUB_REPOSITORY_DISCOVERY_FAILED",message:error.message}});return;}
    next(error);
   }
+ }
+);
+
+githubInstallationsRouter.get("/organizations/:organizationId/projects/:projectId/repositories",
+ authenticate,requireOrganizationScope,requirePermission("projects:read"),
+ async(request:Request,response:Response,next:NextFunction)=>{
+  const projectId=typeof request.params.projectId==="string"?request.params.projectId:"";
+  try{
+   const project=await Project.findOne({organizationId:request.auth!.orgId,projectId}).lean();
+   if(!project){response.status(404).json({error:{code:"PROJECT_NOT_FOUND",message:"The project was not found."}});return;}
+   const links=await GitHubRepositoryLink.find({organizationId:request.auth!.orgId,projectId,status:{$ne:"removed"}}).sort({fullName:1}).lean();
+   response.status(200).json({data:links});
+  }catch(error){next(error);}
+ }
+);
+githubInstallationsRouter.post("/organizations/:organizationId/projects/:projectId/repositories",
+ authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
+ async(request:Request,response:Response,next:NextFunction)=>{
+  const projectId=typeof request.params.projectId==="string"?request.params.projectId:"";
+  const parsed=linkRepositorySchema.safeParse(request.body);
+  if(!parsed.success){response.status(400).json({error:{code:"INVALID_REPOSITORY_LINK",message:"A valid installation and repository ID are required."}});return;}
+  try{
+   const organizationId=request.auth!.orgId;
+   const project=await Project.findOne({organizationId,projectId,status:"active"}).lean();
+   if(!project){response.status(404).json({error:{code:"PROJECT_NOT_FOUND",message:"The active project was not found."}});return;}
+   const installation=await GitHubInstallation.findOne({organizationId,installationId:parsed.data.installationId,status:"active"});
+   if(!installation){response.status(404).json({error:{code:"VERIFIED_INSTALLATION_NOT_FOUND",message:"A verified installation was not found for this organization."}});return;}
+   const inventory=await listGitHubInstallationRepositories(parsed.data.installationId);
+   if(!repositoryBelongsToInstallation({requestedRepositoryId:parsed.data.repositoryId,repositories:inventory.repositories})){
+    response.status(404).json({error:{code:"REPOSITORY_NOT_INSTALLED",message:"The repository is not available through this verified installation."}});return;
+   }
+   const providerRepository=inventory.repositories.find(item=>item.id===parsed.data.repositoryId)!;
+   const ownerLogin=providerRepository.full_name.split("/")[0]??"";
+   const existing=await GitHubRepositoryLink.findOne({organizationId,repositoryId:providerRepository.id});
+   if(existing&&existing.status!=="removed"&&existing.projectId!==projectId){
+    response.status(409).json({error:{code:"REPOSITORY_ALREADY_LINKED",message:"This repository is already linked to another project in this organization."}});return;
+   }
+   const linked=await GitHubRepositoryLink.findOneAndUpdate(
+    {organizationId,repositoryId:providerRepository.id},
+    {$set:{projectId,installationId:parsed.data.installationId,ownerLogin,name:providerRepository.name,fullName:providerRepository.full_name,htmlUrl:providerRepository.html_url,defaultBranch:providerRepository.default_branch,isPrivate:providerRepository.private,status:"active",linkedByUserId:request.auth!.sub}},
+    {new:true,upsert:true,runValidators:true,setDefaultsOnInsert:true}
+   );
+   await AuditEvent.create({eventId:randomUUID(),organizationId,actorUserId:request.auth!.sub,action:"integration.github_repository_linked",targetType:"github_repository",targetId:String(providerRepository.id),metadata:{projectId,installationId:parsed.data.installationId,fullName:providerRepository.full_name}});
+   response.status(201).json({data:linked});
+  }catch(error){
+   if(error&&typeof error==="object"&&"code"in error&&error.code===11000){response.status(409).json({error:{code:"REPOSITORY_ALREADY_LINKED",message:"The repository is already linked."}});return;}
+   if(error instanceof GitHubAppError){const status=error.status===503?503:error.status===403?403:error.status===404?404:502;response.status(status).json({error:{code:"GITHUB_REPOSITORY_LOOKUP_FAILED",message:error.message}});return;}
+   next(error);
+  }
+ }
+);
+githubInstallationsRouter.delete("/organizations/:organizationId/projects/:projectId/repositories/:repositoryId",
+ authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
+ async(request:Request,response:Response,next:NextFunction)=>{
+  const projectId=typeof request.params.projectId==="string"?request.params.projectId:"";
+  const repositoryId=Number(request.params.repositoryId);
+  if(!Number.isSafeInteger(repositoryId)||repositoryId<=0){response.status(400).json({error:{code:"INVALID_REPOSITORY_ID",message:"The repository ID is invalid."}});return;}
+  try{
+   const link=await GitHubRepositoryLink.findOneAndUpdate(
+    {organizationId:request.auth!.orgId,projectId,repositoryId,status:{$ne:"removed"}},
+    {$set:{status:"removed"}},
+    {new:true}
+   );
+   if(!link){response.status(404).json({error:{code:"REPOSITORY_LINK_NOT_FOUND",message:"The repository link was not found."}});return;}
+   await AuditEvent.create({eventId:randomUUID(),organizationId:request.auth!.orgId,actorUserId:request.auth!.sub,action:"integration.github_repository_unlinked",targetType:"github_repository",targetId:String(repositoryId),metadata:{projectId}});
+   response.status(200).json({data:{repositoryId,status:"removed"}});
+  }catch(error){next(error);}
  }
 );
