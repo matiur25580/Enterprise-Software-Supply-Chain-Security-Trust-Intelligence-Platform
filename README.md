@@ -97,3 +97,8 @@ License selection will be made before the first public release.
 The API now exposes a signed GitHub webhook intake endpoint at `POST /api/v1/webhooks/github`. Configure `GITHUB_WEBHOOK_SECRET` from GitHub App settings to enable it. The endpoint validates the raw-body HMAC-SHA256 signature, bounds request size and header values, and records idempotent delivery metadata with a payload fingerprint. It intentionally does not persist raw payloads, access tokens, or repository contents, and does not automatically bind installations to tenants. See [GitHub source-control integration architecture](docs/architecture/GITHUB-SOURCE-CONTROL-INTEGRATION.md).
 
 This is webhook ingress foundation only; installation authorization, encrypted token custody, repository linking and background reconciliation remain follow-on work.
+
+
+## GitHub App installation foundation
+
+Milestone 5 now includes an owner/admin-authorized GitHub App installation start flow, signed short-lived state, one-time nonce consumption, current membership revalidation and a pending-verification installation record. Configure `GITHUB_APP_SLUG` to enable the install URL. See [GitHub App installation architecture](docs/architecture/GITHUB-APP-INSTALLATION.md). Installation records remain pending until a future provider-verification worker validates them through GitHub's App API; no token or private key is stored.
