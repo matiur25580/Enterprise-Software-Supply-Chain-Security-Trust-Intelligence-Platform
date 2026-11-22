@@ -138,3 +138,6 @@ The Components and Vulnerabilities screens now authenticate against the ChainPro
 ### GitHub App connection workspace
 
 The Projects workspace can start GitHub App installation, refresh and verify pending installations, discover repositories from an active installation, link a selected provider repository to an active project, and manually synchronize verified repository/default-branch commit metadata. The API exposes tenant-scoped installation metadata; repository metadata is sourced from GitHub, not browser input. See [WEB-GITHUB-CONNECTION.md](docs/architecture/WEB-GITHUB-CONNECTION.md).
+
+
+GitHub-connected projects also support on-demand, bounded discovery and ingestion of explicitly named CycloneDX/SPDX SBOM files from the verified repository's default-branch commit. Ingestion validates provider file metadata and parses only candidate SBOM JSON (1 MiB per file, 5 MiB aggregate, 10 candidates, 10,000 tree entries), retains repository/path/commit provenance, and deduplicates by document SHA-256. It does not clone or execute repository contents.
