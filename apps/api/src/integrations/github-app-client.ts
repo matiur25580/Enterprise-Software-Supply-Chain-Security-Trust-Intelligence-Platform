@@ -1,5 +1,6 @@
 import {createSign} from "node:crypto";
 import {env} from "../config/env.js";
+import {z} from "zod";
 const API_BASE="https://api.github.com";
 const API_VERSION="2022-11-28";
 export class GitHubAppError extends Error {
@@ -23,6 +24,7 @@ async function githubRequest<T>(path:string,token:string,init?:RequestInit):Prom
   ...init,
   headers:{
    Accept:"application/vnd.github+json",
+   "User-Agent":"ChainProof-Enterprise-App",
    Authorization:"Bearer "+token,
    "X-GitHub-Api-Version":API_VERSION,
    ...(init?.body?{"Content-Type":"application/json"}:{}),...init?.headers
@@ -46,11 +48,11 @@ export async function verifyGitHubInstallation(installationId:number):Promise<Ve
  if(result.app_id!==Number(env.GITHUB_APP_ID))throw new GitHubAppError(403,"The installation belongs to a different GitHub App.");
  if(!result.account||!Number.isSafeInteger(result.account.id)||!result.account.login||!["Organization","User"].includes(result.account.type))throw new GitHubAppError(502,"GitHub returned invalid installation account data.");
  if(result.repository_selection!=="selected")throw new GitHubAppError(403,"ChainProof requires explicitly selected repositories; reinstall the App with selected repository access.");
- if(result.permissions?.contents!=="read"||result.permissions?.metadata!=="read")throw new GitHubAppError(403,"The GitHub App must have read-only contents and metadata permissions.");
+ if(result.permissions?.contents!=="read"||result.permissions?.metadata!=="read"||Object.entries(result.permissions).some(([name,permission])=>!["contents","metadata"].includes(name)||permission!=="read"))throw new GitHubAppError(403,"The GitHub App must have only read-only contents and metadata permissions.");
  return result;
 }
 async function createInstallationToken(installationId:number):Promise<string>{
- const token=await githubRequest<{token:string;expires_at:string}>(`/app/installations/${installationId}/access_tokens`,appJwt(),{method:"POST",body:"{}"});
+ const token=await githubRequest<{token:string;expires_at:string}>(`/app/installations/${installationId}/access_tokens`,appJwt(),{method:"POST",body:JSON.stringify({permissions:{contents:"read",metadata:"read"}})});
  if(typeof token.token!=="string"||!token.token||!Number.isFinite(Date.parse(token.expires_at))||Date.parse(token.expires_at)<=Date.now())throw new GitHubAppError(502,"GitHub returned an invalid installation token.");
  return token.token;
 }
@@ -63,11 +65,10 @@ export async function listGitHubInstallationRepositories(installationId:number):
  let totalCount=0;
  for(let page=1;page<=5;page++){
   const result=await githubRequest<{total_count:number;repositories:GitHubRepositorySummary[]}>(`/installation/repositories?per_page=100&page=${page}`,token);
-  if(!Number.isSafeInteger(result.total_count)||!Array.isArray(result.repositories))throw new GitHubAppError(502,"GitHub returned an invalid repository list.");
-  totalCount=result.total_count;
-  repositories.push(...result.repositories.map((r)=>({
-   id:r.id,name:r.name,full_name:r.full_name,private:r.private,html_url:r.html_url,default_branch:r.default_branch
-  })));
+  const parsed=z.object({total_count:z.number().int().nonnegative(),repositories:z.array(z.object({id:z.number().int().positive(),name:z.string().min(1).max(100),full_name:z.string().min(1).max(200),private:z.boolean(),html_url:z.string().url(),default_branch:z.string().min(1).max(255)}))}).safeParse(result);
+  if(!parsed.success)throw new GitHubAppError(502,"GitHub returned an invalid repository list.");
+  totalCount=parsed.data.total_count;
+  repositories.push(...parsed.data.repositories);
   if(repositories.length>=totalCount||result.repositories.length===0)break;
  }
  return {repositories,totalCount,hasMore:repositories.length<totalCount};
