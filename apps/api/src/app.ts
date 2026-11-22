@@ -1,11 +1,11 @@
 import cors from "cors";
-import express, { type ErrorRequestHandler } from "express";
+import express, { type ErrorRequestHandler, type Express } from "express";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 
-export const app = express();
+export const app: Express = express();
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({
