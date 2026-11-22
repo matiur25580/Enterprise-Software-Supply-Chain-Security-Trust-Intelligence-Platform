@@ -15,6 +15,7 @@ const sbomSchema=new Schema({
  documentName:{type:String,default:null,maxlength:256},
  documentSha256:{type:String,required:true,immutable:true,match:/^[a-f0-9]{64}$/},
  source:{type:String,enum:["manual","github"],default:"manual",required:true},
+ sourceMetadata:{type:new Schema({repositoryId:{type:Number,default:null},repositoryFullName:{type:String,default:null,maxlength:200},path:{type:String,default:null,maxlength:1024},commitSha:{type:String,default:null,match:/^[a-f0-9]{40}$/i}},{_id:false,versionKey:false}),default:null},
  componentCount:{type:Number,required:true,min:0,max:5000},
  components:{type:[componentSchema],default:[]},
  uploadedByUserId:{type:String,required:true,immutable:true}
