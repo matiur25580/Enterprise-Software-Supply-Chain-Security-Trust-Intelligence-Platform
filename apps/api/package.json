@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "clean": "rm -rf dist",
-    "test": "tsx --test src/auth/*.test.ts"
+    "test": "tsx --test src/auth/*.test.ts",
+    "db:indexes": "tsx src/scripts/create-identity-indexes.ts"
   },
   "dependencies": {
     "cors": "2.8.5",
