@@ -17,20 +17,22 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Prepare package manager
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10.12.1
-      - name: Resolve dependency graph for audit
+      - name: Generate dependency lockfile
         run: pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile
-      - name: Commit reproducible lockfile on trusted branch pushes
-        if: github.event_name == 'push'
+      - name: Commit lockfile on same-repository PR or branch push
+        if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -40,7 +42,13 @@ jobs:
             exit 0
           fi
           git commit -m "chore: commit reproducible dependency lockfile [skip ci]"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-
+          git push origin "HEAD:${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+      - name: Install from committed lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Report full advisory metadata
+        if: always()
+        run: |
+          pnpm audit --json > pnpm-audit.json || true
+          node -e 'const fs=require("node:fs"); const raw=fs.readFileSync("pnpm-audit.json","utf8"); try { const data=JSON.parse(raw); console.log(JSON.stringify(data,null,2)); } catch { console.log(raw); }'
       - name: Audit dependencies
         run: pnpm audit --audit-level high
