@@ -107,15 +107,27 @@ async function fetchDetails(ids:string[]):Promise<Map<string,z.infer<typeof vuln
 }
 export async function scanComponentsWithOsv(components:NormalizedSbomComponent[]):Promise<OsvScanResult>{
  const unique=new Map<string,NormalizedSbomComponent>();
- for(const component of components){const purl=versionedPurl(component);if(purl&&!unique.has(purl))unique.set(purl,component);}
+ let scannableComponents=0;
+ for(const component of components){
+  const purl=versionedPurl(component);
+  if(purl){scannableComponents++;if(!unique.has(purl))unique.set(purl,component);}
+ }
  const packages=[...unique.keys()];
  if(packages.length>MAX_PACKAGES)throw new Error(`SBOM has more than ${MAX_PACKAGES} scannable unique packages; split the inventory before scanning.`);
  const idsByPackage=new Map<string,Set<string>>();
- for(let offset=0;offset<packages.length;offset+=BATCH_SIZE){const page=await queryBatch(packages.slice(offset,offset+BATCH_SIZE));for(const [purl,ids] of page)idsByPackage.set(purl,ids);}
- let findingPairs=0;for(const ids of idsByPackage.values())findingPairs+=ids.size;\n if(findingPairs>MAX_FINDINGS)throw new Error("OSV returned more package-advisory matches than the scan safety limit.");\n const allIds=[...new Set([...idsByPackage.values()].flatMap(ids=>[...ids]))];
+ for(let offset=0;offset<packages.length;offset+=BATCH_SIZE){
+  const page=await queryBatch(packages.slice(offset,offset+BATCH_SIZE));
+  for(const [purl,ids] of page)idsByPackage.set(purl,ids);
+ }
+ let findingPairs=0;
+ for(const ids of idsByPackage.values())findingPairs+=ids.size;
+ if(findingPairs>MAX_FINDINGS)throw new Error("OSV returned more package-advisory matches than the scan safety limit.");
+ const allIds=[...new Set([...idsByPackage.values()].flatMap(ids=>[...ids]))];
  if(allIds.length>MAX_VULNERABILITIES)throw new Error("OSV returned more findings than the scan safety limit.");
  const details=await fetchDetails(allIds),findings:OsvFinding[]=[];
- for(const [purl,ids] of idsByPackage)for(const id of ids){const detail=details.get(id);if(detail)findings.push(normalizeVulnerability(detail,purl));}
+ for(const [purl,ids] of idsByPackage){
+  for(const id of ids){const detail=details.get(id);if(detail)findings.push(normalizeVulnerability(detail,purl));}
+ }
  return {findings,scannedPackages:packages.length,skippedPackages:components.length-scannableComponents,vulnerabilityCount:findings.length};
 }
 export const osvLimits={maxPackages:MAX_PACKAGES,maxVulnerabilities:MAX_VULNERABILITIES,maxFindings:MAX_FINDINGS,detailConcurrency:DETAIL_CONCURRENCY};
