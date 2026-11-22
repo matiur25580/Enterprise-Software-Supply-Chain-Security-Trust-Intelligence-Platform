@@ -12,7 +12,7 @@ const envSchema = z.object({
   GITHUB_WEBHOOK_SECRET: z.preprocess((value) => value === "" ? undefined : value, z.string().min(32).optional()),
   GITHUB_APP_SLUG: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[A-Za-z0-9-]+$/).optional()),
   GITHUB_APP_ID: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[0-9]+$/).optional()),
-  GITHUB_APP_PRIVATE_KEY: z.preprocess((value) => value === "" ? undefined : typeof value === "string" ? value.replace(/\\\\n/g, "\\n") : value, z.string().min(100).optional())
+  GITHUB_APP_PRIVATE_KEY: z.preprocess((value) => value === "" ? undefined : typeof value === "string" ? value.replace(/\\n/g, "\n") : value, z.string().min(100).optional())
 });
 
 const parsed = envSchema.superRefine((value, context) => {
@@ -21,6 +21,9 @@ const parsed = envSchema.superRefine((value, context) => {
   }
   if (value.NODE_ENV === "production" && /localhost|127\.0\.0\.1/.test(value.MONGODB_URI)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["MONGODB_URI"], message: "A non-local production MongoDB URI is required." });
+  }
+  if (Boolean(value.GITHUB_APP_ID) !== Boolean(value.GITHUB_APP_PRIVATE_KEY)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["GITHUB_APP_PRIVATE_KEY"], message: "GitHub App ID and private key must be configured together." });
   }
 }).safeParse(process.env);
 if (!parsed.success) {
