@@ -73,73 +73,73 @@ These 12 views are **illustrative SVG dashboard concepts**, not screenshots capt
 
 ### 01. Software supply-chain command center
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Operations overview for registered projects, SBOM coverage, vulnerable components, blocked releases and recent trust decisions. All metrics are synthetic.
 
 ![ChainProof Software supply-chain command center](docs/assets/dashboard/01-software-supply-chain-command-center.svg)
 
 ### 02. SBOM inventory
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Component inventory showing package coordinates, versions, licenses, dependency relationships and SBOM provenance. All records are synthetic.
 
 ![ChainProof SBOM inventory](docs/assets/dashboard/02-sbom-inventory.svg)
 
 ### 03. Vulnerability intelligence
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Vulnerability intelligence workspace showing advisory severity, exploitability context, affected versions and remediation state. All findings are synthetic snapshots.
 
 ![ChainProof Vulnerability intelligence](docs/assets/dashboard/03-vulnerability-intelligence.svg)
 
 ### 04. Release trust passport
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Release trust passport summarizing artifact identity, provenance status, policy outcomes and evidence completeness. All releases are illustrative.
 
 ![ChainProof Release trust passport](docs/assets/dashboard/04-release-trust-passport.svg)
 
 ### 05. Provenance verification
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Provenance verification view for signed attestations, subject digests, trusted signer identity and verification results. All evidence is synthetic.
 
 ![ChainProof Provenance verification](docs/assets/dashboard/05-provenance-verification.svg)
 
 ### 06. Policy & release gates
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Release policy workspace showing deterministic controls, evaluation outcomes, blocking reasons and exception governance. All policies are examples.
 
 ![ChainProof Policy & release gates](docs/assets/dashboard/06-policy-release-gates.svg)
 
 ### 07. Dependency risk graph
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Dependency risk graph concept connecting direct and transitive packages to vulnerable paths and critical downstream services. All nodes are illustrative.
 
 ![ChainProof Dependency risk graph](docs/assets/dashboard/07-dependency-risk-graph.svg)
 
 ### 08. Remediation workspace
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Remediation workspace for vulnerability ownership, fix availability, due dates, risk acceptance and verified closure. All tickets are synthetic.
 
 ![ChainProof Remediation workspace](docs/assets/dashboard/08-remediation-workspace.svg)
 
 ### 09. GitHub integration health
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+GitHub integration health view for linked repositories, webhook delivery, permission scope and synchronization status. All values are synthetic.
 
 ![ChainProof GitHub integration health](docs/assets/dashboard/09-github-integration-health.svg)
 
 ### 10. Audit & evidence trail
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Audit evidence timeline showing attributable policy decisions, trust evaluations, provenance checks and administrative changes. All events are synthetic.
 
 ![ChainProof Audit & evidence trail](docs/assets/dashboard/10-audit-evidence-trail.svg)
 
 ### 11. Supplier & component risk
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Supplier and component risk view linking package maintainers, origin signals, dependency exposure and evidence confidence. All entities are illustrative.
 
 ![ChainProof Supplier & component risk](docs/assets/dashboard/11-supplier-component-risk.svg)
 
 ### 12. Security posture analytics
 
-Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+Security posture analytics summarizing vulnerability trends, SBOM freshness, release-gate outcomes and remediation performance. All charts use synthetic values.
 
 ![ChainProof Security posture analytics](docs/assets/dashboard/12-security-posture-analytics.svg)
 
