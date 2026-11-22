@@ -107,3 +107,21 @@ export function verifyReleaseAttestation(
     envelopeSha256
   );
 }
+
+export function parseTrustedAttestationKeys(serialized: string | undefined): Record<string, TrustedAttestationKey> {
+  if (!serialized) return {};
+  const parsed: unknown = JSON.parse(serialized);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Attestation trust roots must be a JSON object.");
+  const entries = Object.entries(parsed);
+  if (entries.length > 100) throw new Error("At most 100 attestation trust roots may be configured.");
+  const result: Record<string, TrustedAttestationKey> = {};
+  for (const [keyId, value] of entries) {
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(keyId) || !isRecord(value) ||
+        value.algorithm !== "ed25519" || typeof value.publicKeyPem !== "string" ||
+        !value.publicKeyPem.includes("BEGIN PUBLIC KEY")) {
+      throw new Error("Each trust root requires a valid key ID, Ed25519 algorithm, and PEM public key.");
+    }
+    result[keyId] = { algorithm: "ed25519", publicKeyPem: value.publicKeyPem };
+  }
+  return result;
+}
