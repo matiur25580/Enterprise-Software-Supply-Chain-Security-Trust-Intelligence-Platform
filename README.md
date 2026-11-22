@@ -4,7 +4,7 @@
 
 ChainProof helps engineering and security teams understand, verify, govern, and continuously improve the integrity of the software they ship. It brings software inventory, vulnerability intelligence, build provenance, policy decisions, and release evidence into one auditable workflow.
 
-> **Project status:** Foundation phase · Architecture and delivery are being established.
+> **Project status:** Early implementation · Enterprise foundation and the initial security command-center UI are in progress. Dashboard metrics currently use clearly labeled sample data.
 
 ## Product vision
 
@@ -25,13 +25,21 @@ The platform is designed around a central principle: **cryptographic verificatio
 
 ## Planned technology
 
-- **Web:** React, TypeScript, Vite, Tailwind CSS, accessible component primitives, TanStack Query.
+- **Web:** React, TypeScript, Vite, Lucide icons, responsive component architecture, and accessible semantic UI.
 - **API:** Node.js, Express, TypeScript, Zod, structured logging.
 - **Data and jobs:** MongoDB, Redis, BullMQ, object storage.
 - **Integrations:** GitHub, OSV, NVD, CycloneDX, SPDX, Sigstore/Cosign.
 - **Operations:** Docker, GitHub Actions, OpenTelemetry, metrics, and structured audit events.
 
 The stack and integration boundaries will be finalized through implementation milestones; external integrations will be introduced behind explicit adapters.
+
+## Current implementation
+
+- Enterprise pnpm/Turborepo workspace with a React/Vite web application and Express API.
+- Initial security command center with posture metrics, risk distribution, posture trend, prioritized findings, and recent activity.
+- Responsive workspace navigation and searchable vulnerability sample table.
+- Dashboard data is illustrative only; live telemetry and domain workflows are not yet connected.
+- See [architecture notes](docs/architecture/README.md) and the [initial threat model](docs/security/THREAT-MODEL.md).
 
 ## Architecture principles
 
