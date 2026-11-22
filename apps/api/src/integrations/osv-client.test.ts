@@ -25,7 +25,7 @@ test("queries versioned package URLs, fetches full advisory details, and derives
 });
 test("handles clean packages and rejects malformed OSV responses",async()=>{
  const original=globalThis.fetch;
- globalThis.fetch=async()=>new Response(JSON.stringify({results:[{}]}),{status:200,headers:{"content-type":"application/json"}});
+ globalThis.fetch=async()=>new Response(JSON.stringify({unexpected:true}),{status:200,headers:{"content-type":"application/json"}});
  try{
   const clean=await scanComponentsWithOsv([component("no-purl","1.0",null)]);
   assert.equal(clean.scannedPackages,0);assert.equal(clean.skippedPackages,1);
