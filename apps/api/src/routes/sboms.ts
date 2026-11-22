@@ -17,7 +17,7 @@ sbomsRouter.post(base,
  express.raw({type:"application/json",limit:"2mb"}),
  async(request,response,next)=>{
   if(!Buffer.isBuffer(request.body)){response.status(415).json({error:{code:"SBOM_CONTENT_TYPE_REQUIRED",message:"Upload a JSON SBOM with Content-Type application/json."}});return;}
-  let parsed;
+  let parsed:ReturnType<typeof parseSbomDocument>;
   try{parsed=parseSbomDocument(request.body);}catch(error){
    response.status(400).json({error:{code:"INVALID_SBOM",message:error instanceof Error?error.message:"The SBOM document is invalid."}});return;
   }
