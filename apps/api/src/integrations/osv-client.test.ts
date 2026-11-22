@@ -19,6 +19,7 @@ test("queries versioned package URLs, fetches full advisory details, and derives
   assert.deepEqual(result.findings[0]?.fixedVersions,["1.0.1"]);
   assert.match(result.findings[0]?.recommendedAction??"",/1.0.1/);
   assert.match(calls[0]?.body??"",/pkg:npm\/demo@1.0.0/);
+  assert.deepEqual(result.findings.map(finding=>finding.packageUrl).sort(),["pkg:npm/demo@1.0.0","pkg:npm/other@2.0.0"]);
   assert.equal(calls.length,2);
  }finally{globalThis.fetch=original;}
 });
