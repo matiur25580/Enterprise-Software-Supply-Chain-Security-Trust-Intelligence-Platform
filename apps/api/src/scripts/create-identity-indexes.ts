@@ -3,6 +3,7 @@ import { AuditEvent, IdentitySession, Membership, Organization, User } from "../
 import { Project } from "../models/project.js";
 import { GitHubWebhookDelivery } from "../models/github-webhook-delivery.js";
 import { GitHubInstallState, GitHubInstallation } from "../models/github-installation.js";
+import { GitHubRepositoryLink } from "../models/github-repository-link.js";
 import { logger } from "../lib/logger.js";
 
 async function migrate(): Promise<void> {
@@ -12,9 +13,9 @@ async function migrate(): Promise<void> {
       User.createIndexes(), Organization.createIndexes(), Membership.createIndexes(),
       IdentitySession.createIndexes(), AuditEvent.createIndexes(), Project.createIndexes(),
       GitHubWebhookDelivery.createIndexes(), GitHubInstallState.createIndexes(),
-      GitHubInstallation.createIndexes()
+      GitHubInstallation.createIndexes(), GitHubRepositoryLink.createIndexes()
     ]);
-    logger.info("Identity, project registry, GitHub webhook and installation indexes created or verified");
+    logger.info("Identity, project registry, GitHub webhook, installation and repository-link indexes created or verified");
   } finally { await disconnectDatabase(); }
 }
 
