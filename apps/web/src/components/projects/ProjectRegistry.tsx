@@ -15,6 +15,8 @@ type Session = {
   user: { displayName: string; email: string };
 };
 type ProjectForm = { name: string; slug: string; description: string; repositoryUrl: string; defaultBranch: string };
+type Installation = { installationId: number; accountLogin?: string; accountType?: string; repositorySelection?: string; status: "pending_verification" | "active" | "suspended" | "removed"; verifiedAt?: string | null };
+type ProviderRepository = { id: number; name: string; full_name: string; html_url: string; default_branch: string; private: boolean };
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:4000";
 const emptyForm: ProjectForm = { name: "", slug: "", description: "", repositoryUrl: "https://github.com/", defaultBranch: "main" };
 
@@ -39,6 +41,10 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [links, setLinks] = useState<RepositoryLink[]>([]);
+  const [installations, setInstallations] = useState<Installation[]>([]);
+  const [providerRepositories, setProviderRepositories] = useState<ProviderRepository[]>([]);
+  const [selectedInstallation, setSelectedInstallation] = useState("");
+  const [selectedRepository, setSelectedRepository] = useState("");
   const [form, setForm] = useState<ProjectForm>(emptyForm);
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -65,6 +71,13 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
     setSelectedId((current) => all.some((item) => item.projectId === current) ? current : all.find((item) => item.status === "active")?.projectId || all[0]?.projectId || "");
   }, []);
 
+  const loadInstallations = useCallback(async (active: Session) => {
+    const org = encodeURIComponent(active.organization.id);
+    const result = await api<Installation[]>(`/integrations/github/organizations/${org}/installations`, active.accessToken);
+    setInstallations(result);
+    setSelectedInstallation((current) => result.some((item) => String(item.installationId) === current && item.status === "active") ? current : String(result.find((item) => item.status === "active")?.installationId || ""));
+  }, []);
+
   const loadLinks = useCallback(async (active: Session, projectId: string) => {
     if (!projectId) { setLinks([]); return; }
     const org = encodeURIComponent(active.organization.id), project = encodeURIComponent(projectId);
@@ -81,7 +94,7 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
       setNotice("Project registry refreshed.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not refresh the project registry."); }
     finally { setLoading(false); }
-  }, [session, selectedId, loadProjects, loadLinks]);
+  }, [session, selectedId, loadProjects, loadLinks, loadInstallations]);
 
   useEffect(() => {
     if (!session) return;
@@ -109,7 +122,7 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
     loadProjects(session).catch((cause: unknown) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "Could not load projects."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [session, loadProjects]);
+  }, [session, loadProjects, loadInstallations]);
 
   useEffect(() => {
     if (!session || !selectedId) { setLinks([]); return; }
@@ -175,6 +188,58 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
       await loadProjects(session);
       setNotice("Project archived. Its inventory and audit history are retained.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not archive project."); }
+    finally { setSaving(false); }
+  }
+
+  async function connectGitHubApp() {
+    if (!session) return;
+    setError(""); setNotice("");
+    try {
+      const org = encodeURIComponent(session.organization.id);
+      const result = await api<{ installUrl: string }>(`/integrations/github/organizations/${org}/installations/start`, session.accessToken, { method: "POST" });
+      window.open(result.installUrl, "_blank", "noopener,noreferrer");
+      setNotice("GitHub App installation opened. Complete the provider flow, then refresh this workspace.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not start GitHub App installation."); }
+  }
+
+  async function verifyInstallation(installationId: number) {
+    if (!session) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const org = encodeURIComponent(session.organization.id);
+      await api(`/integrations/github/organizations/${org}/installations/${installationId}/verify`, session.accessToken, { method: "POST" });
+      await loadInstallations(session);
+      setSelectedInstallation(String(installationId));
+      setNotice("GitHub App installation verified with read-only repository permissions.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Installation verification failed."); }
+    finally { setSaving(false); }
+  }
+
+  async function discoverRepositories() {
+    if (!session || !selectedInstallation) return;
+    setSaving(true); setError(""); setProviderRepositories([]);
+    try {
+      const org = encodeURIComponent(session.organization.id);
+      const result = await api<{ repositories: ProviderRepository[] }>(`/integrations/github/organizations/${org}/installations/${selectedInstallation}/repositories`, session.accessToken);
+      setProviderRepositories(result.repositories);
+      setSelectedRepository("");
+      setNotice(`Discovered ${result.repositories.length} repositories from GitHub.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Repository discovery failed."); }
+    finally { setSaving(false); }
+  }
+
+  async function linkSelectedRepository() {
+    if (!session || !selected || !selectedInstallation || !selectedRepository) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const org = encodeURIComponent(session.organization.id), project = encodeURIComponent(selected.projectId);
+      await api(`/integrations/github/organizations/${org}/projects/${project}/repositories`, session.accessToken, {
+        method: "POST", body: JSON.stringify({ installationId: Number(selectedInstallation), repositoryId: Number(selectedRepository) })
+      });
+      await loadLinks(session, selected.projectId);
+      setProviderRepositories([]);
+      setNotice("Repository linked using provider-verified GitHub metadata.");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not link repository."); }
     finally { setSaving(false); }
   }
 
@@ -251,6 +316,37 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
               <div className="project-repository"><div><GitBranch size={16} /><strong>Source repository</strong></div><a href={selected.repositoryUrl} target="_blank" rel="noreferrer">{selected.repositoryUrl}<ExternalLink size={13} /></a></div>
               <div className="project-repository linked-repositories"><div><ShieldCheck size={16} /><strong>Verified GitHub repository links</strong><span>{links.length}</span></div>
                 {links.length ? links.map((link) => <div className="linked-repository-row" key={link.repositoryId}><span><strong>{link.fullName}</strong><small>Repository ID {link.repositoryId} · {link.isPrivate ? "Private" : "Public"} · {link.defaultBranch}</small></span><span className={`project-status ${link.status === "active" ? "active" : "archived"}`}>{link.status}</span><a href={link.htmlUrl} target="_blank" rel="noreferrer" aria-label={`Open ${link.fullName}`}><ExternalLink size={13} /></a></div>) : <p>No GitHub App repository is linked to this project. Provider linking requires an owner/admin to install and verify the ChainProof GitHub App.</p>}
+              </div>
+              <div className="project-repository github-connect-panel">
+                <div><ShieldCheck size={16} /><strong>GitHub App connection</strong><span>{installations.length} installation(s)</span></div>
+                <p>Install the ChainProof GitHub App, verify its identity and discover repositories using read-only Contents and Metadata permissions.</p>
+                <div className="github-connect-actions">
+                  <button className="secondary-button" onClick={connectGitHubApp}>Install GitHub App</button>
+                  <button className="secondary-button" onClick={() => loadInstallations(session).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : "Could not refresh installations."))}>Refresh installations</button>
+                </div>
+                {installations.map((item) => <div className="github-install-row" key={item.installationId}>
+                  <span><strong>{item.accountLogin || `Installation #${item.installationId}`}</strong><small>#{item.installationId} · {item.repositorySelection || "selection pending"} · {item.status}</small></span>
+                  {item.status === "pending_verification" && <button className="secondary-button" disabled={saving} onClick={() => verifyInstallation(item.installationId)}>Verify</button>}
+                  {item.status === "active" && <span className="project-status active">verified</span>}
+                </div>)}
+                {installations.some((item) => item.status === "active") && <>
+                  <label className="github-select-label">Verified installation
+                    <select value={selectedInstallation} onChange={(event) => { setSelectedInstallation(event.target.value); setProviderRepositories([]); }}>
+                      {installations.filter((item) => item.status === "active").map((item) => <option key={item.installationId} value={item.installationId}>{item.accountLogin || item.installationId}</option>)}
+                    </select>
+                  </label>
+                  <button className="secondary-button" disabled={!selectedInstallation || saving} onClick={discoverRepositories}><RefreshCw size={13}/> Discover available repositories</button>
+                  {providerRepositories.length > 0 && <div className="github-repository-picker">
+                    <label className="github-select-label">Repository to link
+                      <select value={selectedRepository} onChange={(event) => setSelectedRepository(event.target.value)}>
+                        <option value="">Choose a GitHub repository</option>
+                        {providerRepositories.map((item) => <option key={item.id} value={item.id}>{item.full_name}{item.private ? " · private" : ""}</option>)}
+                      </select>
+                    </label>
+                    <button className="primary-button" disabled={!selectedRepository || saving || selected.status !== "active"} onClick={linkSelectedRepository}>Link to this project</button>
+                  </div>}
+                </>}
+                {installations.length === 0 && <p>No GitHub App installation is registered for this organization yet.</p>}
               </div>
               <p className="project-security-note">Organization ownership is derived from the authenticated session. The browser cannot assign a project to another tenant.</p>
             </>
