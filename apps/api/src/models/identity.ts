@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import { Schema, model, models, type Model } from "mongoose";
 import { roles } from "../auth/roles.js";
 
 const userSchema = new Schema({
@@ -53,8 +53,10 @@ const auditEventSchema = new Schema({
 auditEventSchema.index({ organizationId: 1, createdAt: -1 }, { name: "audit_org_timeline" });
 auditEventSchema.index({ organizationId: 1, actorUserId: 1, createdAt: -1 }, { name: "audit_org_actor_timeline" });
 
-export const User = models.User ?? model("User", userSchema);
-export const Organization = models.Organization ?? model("Organization", organizationSchema);
-export const Membership = models.Membership ?? model("Membership", membershipSchema);
-export const IdentitySession = models.IdentitySession ?? model("IdentitySession", sessionSchema);
-export const AuditEvent = models.AuditEvent ?? model("AuditEvent", auditEventSchema);
+// Explicit Model annotations prevent the cached-model / newly-created-model union
+// from producing incompatible overloaded Mongoose method signatures in TypeScript.
+export const User: Model<any> = (models.User as Model<any> | undefined) ?? model("User", userSchema);
+export const Organization: Model<any> = (models.Organization as Model<any> | undefined) ?? model("Organization", organizationSchema);
+export const Membership: Model<any> = (models.Membership as Model<any> | undefined) ?? model("Membership", membershipSchema);
+export const IdentitySession: Model<any> = (models.IdentitySession as Model<any> | undefined) ?? model("IdentitySession", sessionSchema);
+export const AuditEvent: Model<any> = (models.AuditEvent as Model<any> | undefined) ?? model("AuditEvent", auditEventSchema);
