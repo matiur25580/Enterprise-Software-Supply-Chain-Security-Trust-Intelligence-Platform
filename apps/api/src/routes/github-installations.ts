@@ -60,15 +60,13 @@ githubInstallationsRouter.post("/organizations/:organizationId/installations/:in
    if(!linked){response.status(404).json({error:{code:"INSTALLATION_NOT_FOUND",message:"The installation was not found."}});return;}
    const provider=await verifyGitHubInstallation(installationId);
    if(linked.status==="removed"||linked.status==="suspended"){response.status(409).json({error:{code:"INSTALLATION_NOT_ACTIVE",message:"The installation is not eligible for activation."}});return;}
-   linked.accountId=provider.account.id;
-   linked.accountLogin=provider.account.login;
-   linked.accountType=provider.account.type;
-   linked.repositorySelection=provider.repository_selection;
-   linked.permissions=provider.permissions;
-   linked.appId=provider.app_id;
-   linked.status="active";
-   linked.verifiedAt=new Date();
-   await linked.save();
+   const verifiedAt=new Date();
+   const activated=await GitHubInstallation.findOneAndUpdate(
+    {organizationId:request.auth!.orgId,installationId,status:{$in:["pending_verification","active"]}},
+    {$set:{accountId:provider.account.id,accountLogin:provider.account.login,accountType:provider.account.type,repositorySelection:provider.repository_selection,permissions:provider.permissions,appId:provider.app_id,status:"active",verifiedAt}},
+    {new:true}
+   );
+   if(!activated){response.status(409).json({error:{code:"INSTALLATION_STATE_CHANGED",message:"The installation changed state during verification. Refresh and retry."}});return;}
    await AuditEvent.create({eventId:randomUUID(),organizationId:request.auth!.orgId,actorUserId:request.auth!.sub,action:"integration.github_installation_verified",targetType:"github_installation",targetId:String(installationId),metadata:{accountLogin:provider.account.login,repositorySelection:provider.repository_selection,permissions:provider.permissions}});
    response.status(200).json({data:{installationId,status:"active",account:{login:provider.account.login,type:provider.account.type},repositorySelection:provider.repository_selection,permissions:provider.permissions}});
   }catch(error){
