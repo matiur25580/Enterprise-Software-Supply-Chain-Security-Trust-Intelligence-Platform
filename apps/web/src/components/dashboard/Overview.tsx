@@ -1,5 +1,5 @@
 import {
-  ArrowRight, ArrowUpRight, Check, ChevronDown, CircleDot,
+  ArrowRight, ArrowUpRight, Check, ChevronDown, CircleDot, Clock3,
   ExternalLink, FileCheck2, GitBranch, ShieldAlert, ShieldCheck,
   TriangleAlert
 } from "lucide-react";
