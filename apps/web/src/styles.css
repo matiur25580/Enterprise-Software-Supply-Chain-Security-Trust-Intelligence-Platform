@@ -199,3 +199,5 @@ button { cursor: pointer; }
 .spin { animation:security-spin 1s linear infinite; }@keyframes security-spin { to { transform:rotate(360deg); } }
 @media(max-width:900px) { .security-workspace { padding:24px 20px 32px; }.security-grid { grid-template-columns:1fr; } }
 @media(max-width:640px) { .security-workspace { padding:20px 13px 28px; }.security-heading { align-items:flex-start; flex-direction:column; }.security-heading h1 { font-size:23px; }.security-toolbar { align-items:stretch; flex-direction:column; }.security-toolbar > label { width:100%; }.security-toolbar-actions { justify-content:space-between; }.upload-form { align-items:stretch; flex-direction:column; }.upload-form .primary-button { width:100%; }.scan-summary { gap:9px 14px; } }
+
+.auth-mode-toggle { padding:5px 4px; color:#3975c4; border:0; background:transparent; font-size:10px; font-weight:650; cursor:pointer; }.auth-mode-toggle:hover { color:#23579a; text-decoration:underline; }
