@@ -3,6 +3,7 @@ import { ArrowLeft, Construction, ShieldCheck } from "lucide-react";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Topbar } from "./components/layout/Topbar";
 import { Overview } from "./components/dashboard/Overview";
+import { SecurityCenter } from "./components/security/SecurityCenter";
 
 const pageDescriptions: Record<string, string> = {
   Projects: "Connect repositories and understand ownership, dependencies, and release posture.",
@@ -29,7 +30,8 @@ export default function App() {
       <Sidebar activeItem={activeItem} onNavigate={setActiveItem} />
       <div className="app-main">
         <Topbar title={title} search={search} onSearch={setSearch} />
-        {activeItem === "Overview" ? <Overview search={search} /> : <ComingSoon page={activeItem} onBack={() => setActiveItem("Overview")} />}
+        {activeItem === "Overview" ? <Overview search={search} /> : !["Components", "Vulnerabilities"].includes(activeItem) ? <ComingSoon page={activeItem} onBack={() => setActiveItem("Overview")} /> : null}
+        <SecurityCenter page={activeItem} hidden={!["Components", "Vulnerabilities"].includes(activeItem)} />
       </div>
     </div>
   );
