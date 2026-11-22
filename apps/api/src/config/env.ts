@@ -10,7 +10,9 @@ const envSchema = z.object({
   MONGODB_URI: z.string().min(1).default("mongodb://127.0.0.1:27017/chainproof?replicaSet=rs0"),
   AUTH_SESSION_SECRET: z.string().min(32).default("chainproof-local-development-secret-change-before-deploy"),
   GITHUB_WEBHOOK_SECRET: z.preprocess((value) => value === "" ? undefined : value, z.string().min(32).optional()),
-  GITHUB_APP_SLUG: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[A-Za-z0-9-]+$/).optional())
+  GITHUB_APP_SLUG: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[A-Za-z0-9-]+$/).optional()),
+  GITHUB_APP_ID: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[0-9]+$/).optional()),
+  GITHUB_APP_PRIVATE_KEY: z.preprocess((value) => value === "" ? undefined : typeof value === "string" ? value.replace(/\\\\n/g, "\\n") : value, z.string().min(100).optional())
 });
 
 const parsed = envSchema.superRefine((value, context) => {
