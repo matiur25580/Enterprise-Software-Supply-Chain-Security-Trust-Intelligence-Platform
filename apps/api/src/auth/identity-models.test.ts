@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { AuditEvent, IdentitySession, Membership, Organization, User } from "../models/identity.js";
 
-function hasIndex(schema: { indexes(): Array<[Record<string, number>, Record<string, unknown>]> }, key: Record<string, number>, unique = false): boolean {
-  return schema.indexes().some(([keys, options]) =>
-    JSON.stringify(keys) === JSON.stringify(key) && (!unique || options.unique === true)
-  );
+function hasIndex(schema: { indexes(): unknown[] }, key: Record<string, number>, unique = false): boolean {
+  return schema.indexes().some((entry) => {
+    if (!Array.isArray(entry)) return false;
+    const [keys, options] = entry as [Record<string, unknown>, { unique?: boolean }];
+    return JSON.stringify(keys) === JSON.stringify(key) && (!unique || options.unique === true);
+  });
 }
 
 test("identity models declare normalized unique account and organization identifiers", () => {
