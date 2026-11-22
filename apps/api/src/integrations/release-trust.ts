@@ -18,13 +18,15 @@ export interface ReleaseTrustAssessment {
   trustScore: number;
   trustFactors: Array<{ key: string; points: number; explanation: string }>;
   policyStatus: "eligible" | "blocked";
+  provenanceVerification: "verified" | "failed" | "untrusted_key" | "not_provided";
   policyReasons: string[];
   vulnerabilitySummary: ReleaseRiskCounts;
 }
 
 export function assessReleaseTrust(
   provenance: ReleaseProvenanceInput,
-  counts: ReleaseRiskCounts
+  counts: ReleaseRiskCounts,
+  provenanceVerification: ReleaseTrustAssessment["provenanceVerification"] = "not_provided"
 ): ReleaseTrustAssessment {
   const trustFactors: ReleaseTrustAssessment["trustFactors"] = [];
   const policyReasons: string[] = [];
@@ -44,8 +46,13 @@ export function assessReleaseTrust(
     trustFactors.push({ key: "provenance_recorded", points: 0, explanation: "Source repository, commit, builder identity, and build run reference are recorded." });
   }
 
-  score -= 20;
-  trustFactors.push({ key: "attestation_unverified", points: -20, explanation: "The provenance attestation has not been cryptographically verified by the platform." });
+  if (provenanceVerification === "verified") {
+    trustFactors.push({ key: "attestation_verified", points: 0, explanation: "The DSSE signature, trusted Ed25519 key, artifact subject, and signed provenance claims were verified." });
+  } else {
+    score -= 20;
+    trustFactors.push({ key: "attestation_unverified", points: -20, explanation: "A trusted cryptographic provenance attestation has not been verified." });
+    policyReasons.push("A trusted cryptographic provenance attestation is required for release eligibility.");
+  }
   if (counts.critical > 0) {
     score -= Math.min(45, counts.critical * 45);
     policyReasons.push(`${counts.critical} critical open vulnerability finding(s) exceed the release policy threshold of zero.`);
@@ -69,12 +76,12 @@ export function assessReleaseTrust(
   if (counts.critical === 0 && counts.high === 0) {
     trustFactors.push({ key: "vulnerability_gate_passed", points: 0, explanation: "No critical or high open vulnerability findings were found for the associated SBOM." });
   }
-  const policyStatus = policyReasons.some(reason => reason.includes("critical") || reason.includes("high") || reason.includes("incomplete"))
-    ? "blocked" : "eligible";
+  const policyStatus = policyReasons.length > 0 ? "blocked" : "eligible";
   return {
     trustScore: Math.max(0, Math.min(100, score)),
     trustFactors,
     policyStatus,
+    provenanceVerification,
     policyReasons,
     vulnerabilitySummary: { ...counts }
   };
