@@ -58,7 +58,7 @@ test("rejects modified signed payload bytes", () => {
     _type: "https://in-toto.io/Statement/v1",
     subject: [{ name: "service.tar.gz", digest: { sha256: expected.artifactSha256 } }],
     predicateType: RELEASE_PROVENANCE_PREDICATE,
-    predicate: { ...expected, sourceCommitSha: "d".repeat(40) }
+    predicate: { ...expected, buildInvocationId: "tampered-after-signing" }
   })).toString("base64");
   assert.equal(verifyReleaseAttestation(value, expected, trustedKeys).status, "failed");
 });
