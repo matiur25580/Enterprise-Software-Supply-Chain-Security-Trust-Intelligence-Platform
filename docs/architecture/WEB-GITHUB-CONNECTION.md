@@ -44,3 +44,16 @@ The Projects workspace offers **Sync now** for an active linked repository. The 
 Endpoint: `POST /api/v1/integrations/github/organizations/:organizationId/projects/:projectId/repositories/:repositoryId/sync` (requires `integrations:manage`).
 
 This is a bounded on-demand metadata synchronization, not yet a background job. It does not fetch repository file contents, discover or ingest committed SBOM files, enqueue vulnerability scans, or process push webhooks asynchronously. Those are separate follow-on capabilities; no source code is cloned or executed by this endpoint.
+
+
+## GitHub repository SBOM discovery and ingestion
+
+An organization integration manager can select **Discover SBOMs** on an active linked repository. ChainProof resolves the repository's current default-branch commit, validates that provider identity still matches the tenant's repository link, and reads that commit's recursive Git tree through the verified GitHub App.
+
+Candidate names are intentionally explicit: `.cdx.json`, `.spdx.json`, `.sbom.json`, `*.cyclonedx.json`, `sbom.json`, and `bom.json`. Arbitrary JSON files are not downloaded. Discovery fails closed for truncated trees, trees over 10,000 entries, or more than 10 candidate files. Candidate files must have a known size between 1 byte and 1 MiB; aggregate candidate downloads are capped at 5 MiB. GitHub blob SHA, size, file type, and base64 encoding are checked before bytes are passed to the existing bounded CycloneDX/SPDX JSON parser.
+
+Valid documents are stored as normalized component metadata and a SHA-256 digest, with provenance containing repository ID/full name, path, and exact commit SHA. Exact document duplicates within the project are reported rather than re-ingested. Invalid or unsupported candidate documents are reported as skipped with a bounded parser reason. An organization-scoped audit event records the discovery summary and each ingestion.
+
+Endpoint: `POST /api/v1/integrations/github/organizations/:organizationId/projects/:projectId/repositories/:repositoryId/sbom-discovery` (requires `integrations:manage`).
+
+The workflow downloads only explicitly named candidate SBOM files. It does not clone repositories, execute code, extract archives, or fetch arbitrary repository files. Discovery is synchronous and on-demand; asynchronous queues, automatic push-triggered discovery, and automatic vulnerability rescans remain future work.
