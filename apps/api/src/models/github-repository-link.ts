@@ -12,7 +12,11 @@ const schema=new Schema({
  isPrivate:{type:Boolean,required:true},
  status:{type:String,enum:["active","suspended","removed"],default:"active",required:true},
  linkedByUserId:{type:String,required:true,immutable:true},
- lastSyncedAt:{type:Date,default:null}
+ lastSyncedAt:{type:Date,default:null},
+ lastSyncedCommitSha:{type:String,default:null,match:/^[a-f0-9]{40}$/i},
+ lastSyncedCommitAt:{type:Date,default:null},
+ syncStatus:{type:String,enum:["never","syncing","succeeded","failed"],default:"never"},
+ syncError:{type:String,default:null,maxlength:300}
 },{timestamps:true,versionKey:false});
 schema.index({organizationId:1,repositoryId:1},{unique:true,name:"github_repo_org_repository_unique"});
 schema.index({organizationId:1,projectId:1,status:1},{name:"github_repo_project_status"});
