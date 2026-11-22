@@ -31,5 +31,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: Typecheck
         run: pnpm typecheck
+      - name: Auth unit tests
+        run: pnpm --filter @chainproof/api test
       - name: Build
         run: pnpm build
