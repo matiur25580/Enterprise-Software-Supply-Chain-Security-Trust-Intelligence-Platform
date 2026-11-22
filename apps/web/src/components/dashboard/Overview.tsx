@@ -1,5 +1,5 @@
 import {
-  ArrowDownRight, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleDot,
+  ArrowRight, ArrowUpRight, Check, ChevronDown, CircleDot,
   Clock3, ExternalLink, FileCheck2, GitBranch, ShieldAlert, ShieldCheck,
   TriangleAlert
 } from "lucide-react";
@@ -29,7 +29,7 @@ export function Overview({ search }: { search: string }) {
         <div className="welcome-actions"><button className="secondary-button"><Clock3 size={15} /> Last 30 days <ChevronDown size={14} /></button><button className="primary-button"><GitBranch size={15} /> Connect repository</button></div>
       </div>
       <section className="metrics-grid" aria-label="Security posture metrics">
-        <MetricCard label="Security score" value="87<span>/100</span>" detail="vs. previous period" trend="+4.8%" icon={ShieldCheck} tone="green" points="2,27 18,21 31,24 45,13 59,17 74,8 98,5" />
+        <MetricCard label="Security score" value="87" unit="/100" detail="vs. previous period" trend="+4.8%" icon={ShieldCheck} tone="green" points="2,27 18,21 31,24 45,13 59,17 74,8 98,5" />
         <MetricCard label="Components tracked" value="12,486" detail="across 18 projects" trend="+12.4%" icon={GitBranch} tone="blue" points="2,25 17,20 30,22 43,13 58,16 72,8 98,4" />
         <MetricCard label="Open vulnerabilities" value="24" detail="6 require immediate action" trend="-18.2%" positive={false} icon={ShieldAlert} tone="amber" points="2,5 17,10 30,8 44,17 58,13 73,24 98,28" />
         <MetricCard label="Verified releases" value="96.4%" detail="of production deployments" trend="+2.1%" icon={FileCheck2} tone="violet" points="2,26 18,21 31,23 45,15 59,17 74,8 98,4" />
