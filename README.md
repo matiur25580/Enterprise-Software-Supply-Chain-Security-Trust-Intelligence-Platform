@@ -4,7 +4,7 @@
 
 ChainProof helps engineering and security teams understand, verify, govern, and continuously improve the integrity of the software they ship. It brings software inventory, vulnerability intelligence, build provenance, policy decisions, and release evidence into one auditable workflow.
 
-> **Project status:** Early implementation · Enterprise foundation and the initial security command-center UI are in progress. Dashboard metrics currently use clearly labeled sample data.
+> **Project status:** Early implementation · Enterprise foundation, initial security command center, and API identity/tenant-access primitives are in progress. Dashboard metrics remain illustrative sample data.
 
 ## Product vision
 
@@ -39,6 +39,8 @@ The stack and integration boundaries will be finalized through implementation mi
 - Initial security command center with posture metrics, risk distribution, posture trend, prioritized findings, and recent activity.
 - Responsive workspace navigation and searchable vulnerability sample table.
 - Dashboard data is illustrative only; live telemetry and domain workflows are not yet connected.
+- API identity foundation includes scrypt password hashing utilities, short-lived HMAC sessions, centralized RBAC permissions, and verified organization-scope middleware.
+- Protected organization-context endpoint is wired under `/api/v1`; persistent accounts, memberships, refresh-token rotation/revocation, MFA, and SSO remain future work.
 - See [architecture notes](docs/architecture/README.md) and the [initial threat model](docs/security/THREAT-MODEL.md).
 
 ## Architecture principles
@@ -75,9 +77,9 @@ Prerequisites and exact commands will be documented as the foundation milestone 
 ## Roadmap
 
 - [x] Repository created
-- [ ] Milestone 1 — monorepo foundation, developer experience, baseline documentation
-- [ ] Milestone 2 — application shell and design system
-- [ ] Milestone 3 — identity, organizations, RBAC, and tenant isolation
+- [x] Milestone 1 — monorepo foundation, developer experience, baseline documentation
+- [x] Milestone 2 — application shell and design system
+- [ ] Milestone 3 — identity, organizations, RBAC, and tenant isolation (identity primitives and request-level tenant guard started; persistence and lifecycle remain)
 - [ ] Milestone 4 — project and source-control intelligence
 - [ ] Milestone 5 — SBOM ingestion and component inventory
 - [ ] Milestone 6 — vulnerability intelligence and remediation workflows
