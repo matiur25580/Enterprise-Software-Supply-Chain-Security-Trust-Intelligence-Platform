@@ -32,9 +32,24 @@ export function versionedPurl(component:NormalizedSbomComponent):string|null{
  if(!component.version)return null;
  return `${base}@${encodeURIComponent(component.version)}${purl.slice(suffixIndex)}`;
 }
+function cvssV3Score(vector:string):number|null{
+ const metrics=Object.fromEntries(vector.split("/").slice(1).map(part=>part.split(":"))) as Record<string,string>;
+ const av:Record<string,number>={N:0.85,A:0.62,L:0.55,P:0.2},ac:Record<string,number>={L:0.77,H:0.44},ui:Record<string,number>={N:0.85,R:0.62};
+ const impactMetric:Record<string,number>={H:0.56,L:0.22,N:0};
+ const scope=metrics.S;
+ if(!av[metrics.AV??""]||!ac[metrics.AC??""]||!ui[metrics.UI??""]||!impactMetric[metrics.C??""]&&metrics.C!=="H"||!impactMetric[metrics.I??""]&&metrics.I!=="H"||!impactMetric[metrics.A??""]&&metrics.A!=="H"||(scope!=="U"&&scope!=="C"))return null;
+ const prValues=scope==="C"?{N:0.85,L:0.68,H:0.5}:{N:0.85,L:0.62,H:0.27};
+ const pr=prValues[metrics.PR as "N"|"L"|"H"];if(pr===undefined)return null;
+ const impactSub=1-(1-impactMetric[metrics.C!]!)*(1-impactMetric[metrics.I!]!)*(1-impactMetric[metrics.A!]!);
+ const impact=scope==="U"?6.42*impactSub:7.52*(impactSub-0.029)-3.25*Math.pow(impactSub-0.02,15);
+ if(impact<=0)return 0;
+ const exploitability=8.22*av[metrics.AV!]!*ac[metrics.AC!]!*pr*ui[metrics.UI!]!;
+ const base=scope==="U"?Math.min(impact+exploitability,10):Math.min(1.08*(impact+exploitability),10);
+ return Math.ceil(base*10-1e-9)/10;
+}
 function severityFrom(vulnerability:z.infer<typeof vulnerabilitySchema>):{severity:OsvFinding["severity"];score:number|null}{
  const candidates:unknown[]=[];
- for(const entry of vulnerability.severity??[]){if(entry.score){const numeric=Number(entry.score);if(Number.isFinite(numeric)&&numeric>=0&&numeric<=10)candidates.push(numeric);}}
+ for(const entry of vulnerability.severity??[]){if(entry.score){const numeric=Number(entry.score);if(Number.isFinite(numeric)&&numeric>=0&&numeric<=10)candidates.push(numeric);else {const cvss=cvssV3Score(entry.score);if(cvss!==null)candidates.push(cvss);}}}
  for(const affected of vulnerability.affected??[]){const label=affected.ecosystem_specific?.severity;if(typeof label==="string")candidates.push(label);}
  const dbSeverity=vulnerability.database_specific?.severity;if(typeof dbSeverity==="string")candidates.push(dbSeverity);
  const scores=candidates.filter((value):value is number=>typeof value==="number");
