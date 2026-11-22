@@ -8,8 +8,10 @@ import {requirePermission} from "../middleware/authorize.js";
 import {GitHubInstallState,GitHubInstallation} from "../models/github-installation.js";
 import {Membership,Organization,User,AuditEvent} from "../models/identity.js";
 import {createGitHubInstallState,verifyGitHubInstallState} from "../integrations/github-install-state.js";
-import {GitHubAppError,listGitHubInstallationRepositories,verifyGitHubInstallation,getGitHubRepositorySnapshot} from "../integrations/github-app-client.js";
+import {GitHubAppError,listGitHubInstallationRepositories,verifyGitHubInstallation,getGitHubRepositorySnapshot,getGitHubRepositorySbomFiles} from "../integrations/github-app-client.js";
 import {Project} from "../models/project.js";
+import {Sbom} from "../models/sbom.js";
+import {parseSbomDocument} from "../integrations/sbom-parser.js";
 import {GitHubRepositoryLink} from "../models/github-repository-link.js";
 import {linkRepositorySchema,repositoryBelongsToInstallation} from "../integrations/github-repository-linking.js";
 export const githubInstallationsRouter:ExpressRouter=Router();
@@ -200,6 +202,68 @@ githubInstallationsRouter.post("/organizations/:organizationId/projects/:project
   }
  }
 );
+
+githubInstallationsRouter.post("/organizations/:organizationId/projects/:projectId/repositories/:repositoryId/sbom-discovery",
+ authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
+ async(request:Request,response:Response,next:NextFunction)=>{
+  const projectId=typeof request.params.projectId==="string"?request.params.projectId:"";
+  const repositoryId=Number(request.params.repositoryId);
+  if(!projectId||!Number.isSafeInteger(repositoryId)||repositoryId<=0){response.status(400).json({error:{code:"INVALID_SBOM_DISCOVERY",message:"The project or repository identifier is invalid."}});return;}
+  const organizationId=request.auth!.orgId;
+  try{
+   const [project,link]=await Promise.all([
+    Project.findOne({organizationId,projectId,status:"active"}).select({projectId:1}).lean(),
+    GitHubRepositoryLink.findOne({organizationId,projectId,repositoryId,status:"active"})
+   ]);
+   if(!project||!link){response.status(404).json({error:{code:"REPOSITORY_LINK_NOT_FOUND",message:"The active project repository link was not found."}});return;}
+   const installation=await GitHubInstallation.findOne({organizationId,installationId:link.installationId,status:"active"});
+   if(!installation){response.status(409).json({error:{code:"INSTALLATION_NOT_ACTIVE",message:"The linked GitHub installation is not active."}});return;}
+   const snapshot=await getGitHubRepositorySnapshot({installationId:link.installationId,owner:link.ownerLogin,repository:link.name});
+   if(snapshot.repository.id!==repositoryId||snapshot.repository.full_name.toLowerCase()!==link.fullName.toLowerCase())throw new GitHubAppError(502,"GitHub repository identity did not match the linked repository.");
+   if(snapshot.repository.archived||snapshot.repository.disabled)throw new GitHubAppError(409,"Archived or disabled repositories cannot be scanned.");
+   const discovery=await getGitHubRepositorySbomFiles({installationId:link.installationId,owner:link.ownerLogin,repository:link.name,commitSha:snapshot.commit.sha});
+   const stillActive=await GitHubInstallation.exists({organizationId,installationId:link.installationId,status:"active"});
+   if(!stillActive)throw new GitHubAppError(409,"The GitHub installation became inactive during SBOM discovery.");
+   const ingested:Array<Record<string,unknown>>=[];
+   const duplicates:Array<{path:string;sbomId:string|null}>=[];
+   const skipped:Array<{path:string;reason:string}>=[];
+   for(const file of discovery.files){
+    let parsed:ReturnType<typeof parseSbomDocument>;
+    try{parsed=parseSbomDocument(file.content);}catch(error){skipped.push({path:file.path,reason:error instanceof Error?error.message:"Unsupported SBOM document."});continue;}
+    const existing=await Sbom.findOne({organizationId,projectId,documentSha256:parsed.documentSha256}).select({sbomId:1}).lean();
+    const existingId=existing&&!Array.isArray(existing)?(existing as {sbomId?:string}).sbomId:null;
+    if(existingId){duplicates.push({path:file.path,sbomId:existingId});continue;}
+    const sbomId=randomUUID();
+    try{
+     const document=await Sbom.create({
+      sbomId,organizationId,projectId,...parsed,source:"github",sourceMetadata:{
+       repositoryId,repositoryFullName:link.fullName,path:file.path,commitSha:snapshot.commit.sha
+      },uploadedByUserId:request.auth!.sub
+     });
+     ingested.push({sbomId,format:document.format,componentCount:document.componentCount,path:file.path,documentSha256:document.documentSha256});
+     await AuditEvent.create({eventId:randomUUID(),organizationId,actorUserId:request.auth!.sub,action:"sbom.github_ingested",targetType:"sbom",targetId:sbomId,metadata:{projectId,repositoryId,repositoryFullName:link.fullName,path:file.path,commitSha:snapshot.commit.sha,documentSha256:parsed.documentSha256,componentCount:parsed.componentCount}});
+    }catch(error){
+     if(error&&typeof error==="object"&&"code"in error&&error.code===11000){
+      const duplicate=await Sbom.findOne({organizationId,projectId,documentSha256:parsed.documentSha256}).select({sbomId:1}).lean();
+      duplicates.push({path:file.path,sbomId:duplicate&&!Array.isArray(duplicate)?(duplicate as {sbomId?:string}).sbomId??null:null});
+      continue;
+     }
+     throw error;
+    }
+   }
+   link.lastSyncedAt=new Date();link.lastSyncedCommitSha=snapshot.commit.sha;
+   const commitDate=snapshot.commit.commit.committer.date||snapshot.commit.commit.author.date;
+   link.lastSyncedCommitAt=commitDate?new Date(commitDate):null;
+   link.syncStatus="succeeded";link.syncError=null;await link.save();
+   await AuditEvent.create({eventId:randomUUID(),organizationId,actorUserId:request.auth!.sub,action:"integration.github_sbom_discovery_completed",targetType:"github_repository",targetId:String(repositoryId),metadata:{projectId,commitSha:snapshot.commit.sha,candidateCount:discovery.candidateCount,ingestedCount:ingested.length,duplicateCount:duplicates.length,skippedCount:skipped.length}});
+   response.status(200).json({data:{repositoryId,fullName:link.fullName,commitSha:snapshot.commit.sha,candidateCount:discovery.candidateCount,downloadedCount:discovery.files.length,ingested,duplicates,skippedCount:skipped.length,skipped}});
+  }catch(error){
+   if(error instanceof GitHubAppError){const status=error.status===503?503:error.status===403?403:error.status===404?404:error.status===409?409:error.status===422?422:502;response.status(status).json({error:{code:"GITHUB_SBOM_DISCOVERY_FAILED",message:error.message}});return;}
+   next(error);
+  }
+ }
+);
+
 githubInstallationsRouter.delete("/organizations/:organizationId/projects/:projectId/repositories/:repositoryId",
  authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
  async(request:Request,response:Response,next:NextFunction)=>{
