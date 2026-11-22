@@ -12,3 +12,12 @@ test("a repository can only be selected from the verified installation inventory
  assert.equal(repositoryBelongsToInstallation({requestedRepositoryId:34,repositories}),true);
  assert.equal(repositoryBelongsToInstallation({requestedRepositoryId:99,repositories}),false);
 });
+
+import {installationWebhookTransition} from "./github-installation-webhook.js";
+test("installation webhooks cannot activate an installation before provider verification",()=>{
+ assert.equal(installationWebhookTransition("suspended",null,"unsuspend"),null);
+ assert.equal(installationWebhookTransition("suspended",new Date(),"unsuspend"),"active");
+ assert.equal(installationWebhookTransition("active",new Date(),"suspend"),"suspended");
+ assert.equal(installationWebhookTransition("pending_verification",null,"deleted"),"removed");
+ assert.equal(installationWebhookTransition("removed",new Date(),"unsuspend"),null);
+});
