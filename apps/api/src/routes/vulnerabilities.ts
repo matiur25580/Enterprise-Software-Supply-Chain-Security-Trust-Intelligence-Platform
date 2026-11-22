@@ -9,6 +9,7 @@ import {Sbom} from "../models/sbom.js";
 import {VulnerabilityFinding} from "../models/vulnerability-finding.js";
 import {AuditEvent} from "../models/identity.js";
 import {scanComponentsWithOsv,versionedPurl} from "../integrations/osv-client.js";
+import type {NormalizedSbomComponent} from "../integrations/sbom-parser.js";
 export const vulnerabilitiesRouter:ExpressRouter=Router();
 const base="/organizations/:organizationId/projects/:projectId";
 const listQuerySchema=z.object({limit:z.coerce.number().int().min(1).max(100).default(50),severity:z.enum(["critical","high","moderate","low","unknown"]).optional(),status:z.enum(["open","accepted_risk","resolved"]).optional()}).strict();
@@ -21,7 +22,7 @@ vulnerabilitiesRouter.post(`${base}/sboms/:sbomId/scan`,authenticate,requireOrga
   const organizationId=request.auth!.orgId;
   const project=await Project.findOne({organizationId,projectId,status:"active"}).select({projectId:1}).lean();
   if(!project){response.status(404).json({error:{code:"PROJECT_NOT_FOUND",message:"The active project was not found."}});return;}
-  const sbom=await Sbom.findOne({organizationId,projectId,sbomId}).lean() as unknown as {components:Array<{bomRef:string|null;name:string;version:string|null;purl:string|null}>}|null;
+  const sbom=await Sbom.findOne({organizationId,projectId,sbomId}).lean() as unknown as {components:NormalizedSbomComponent[]}|null;
   if(!sbom){response.status(404).json({error:{code:"SBOM_NOT_FOUND",message:"The SBOM was not found."}});return;}
   const result=await scanComponentsWithOsv(sbom.components);
   const scannedAt=new Date();
