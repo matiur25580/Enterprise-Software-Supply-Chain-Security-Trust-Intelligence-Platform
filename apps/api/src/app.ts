@@ -11,6 +11,7 @@ import { githubWebhooksRouter } from "./routes/github-webhooks.js";
 import { githubInstallationsRouter } from "./routes/github-installations.js";
 import { sbomsRouter } from "./routes/sboms.js";
 import { vulnerabilitiesRouter } from "./routes/vulnerabilities.js";
+import { releasesRouter } from "./routes/releases.js";
 
 export const app: Express = express();
 app.disable("x-powered-by");
@@ -30,6 +31,7 @@ app.use(pinoHttp({ logger }));
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1", accessRouter);
 app.use("/api/v1", projectsRouter);
+app.use("/api/v1", releasesRouter);
 
 app.get("/api/v1/health", (_request, response) => {
   response.status(200).json({
