@@ -1,9 +1,9 @@
-import { Router } from "express";
+import { Router, type Router as ExpressRouter } from "express";
 import { authenticate } from "../middleware/authenticate.js";
 import { requireOrganizationScope } from "../middleware/organization-scope.js";
 import { requirePermission } from "../middleware/authorize.js";
 
-export const accessRouter = Router();
+export const accessRouter: ExpressRouter = Router();
 accessRouter.get("/organizations/:organizationId/context",
   authenticate, requireOrganizationScope, requirePermission("organization:read"),
   (request, response) => {
