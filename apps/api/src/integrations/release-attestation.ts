@@ -121,6 +121,8 @@ export function parseTrustedAttestationKeys(serialized: string | undefined): Rec
         !value.publicKeyPem.includes("BEGIN PUBLIC KEY")) {
       throw new Error("Each trust root requires a valid key ID, Ed25519 algorithm, and PEM public key.");
     }
+    const publicKey = createPublicKey(value.publicKeyPem);
+    if (publicKey.asymmetricKeyType !== "ed25519") throw new Error(`Trust root ${keyId} is not an Ed25519 public key.`);
     result[keyId] = { algorithm: "ed25519", publicKeyPem: value.publicKeyPem };
   }
   return result;
