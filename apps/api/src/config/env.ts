@@ -9,7 +9,7 @@ const envSchema = z.object({
   WEB_ORIGIN: z.string().url().default("http://localhost:5173"),
   MONGODB_URI: z.string().min(1).default("mongodb://127.0.0.1:27017/chainproof?replicaSet=rs0"),
   AUTH_SESSION_SECRET: z.string().min(32).default("chainproof-local-development-secret-change-before-deploy"),
-  GITHUB_WEBHOOK_SECRET: z.string().min(32).optional()
+  GITHUB_WEBHOOK_SECRET: z.preprocess((value) => value === "" ? undefined : value, z.string().min(32).optional())
 });
 
 const parsed = envSchema.superRefine((value, context) => {
