@@ -28,7 +28,8 @@ sbomsRouter.post(base,
    const project=await Project.findOne({organizationId,projectId,status:"active"}).lean();
    if(!project){response.status(404).json({error:{code:"PROJECT_NOT_FOUND",message:"The active project was not found."}});return;}
    const duplicate=await Sbom.findOne({organizationId,projectId,documentSha256:parsed.documentSha256}).select({sbomId:1}).lean();
-   if(duplicate){response.status(409).json({error:{code:"SBOM_ALREADY_INGESTED",message:"This exact SBOM document has already been ingested for the project.",sbomId:duplicate.sbomId}});return;}
+   const duplicateId=duplicate&&!Array.isArray(duplicate)?(duplicate as {sbomId?:string}).sbomId:null;
+   if(duplicateId){response.status(409).json({error:{code:"SBOM_ALREADY_INGESTED",message:"This exact SBOM document has already been ingested for the project.",sbomId:duplicateId}});return;}
    const sbomId=randomUUID();
    const document=await Sbom.create({sbomId,organizationId,projectId,...parsed,source:"manual",uploadedByUserId:request.auth!.sub});
    await AuditEvent.create({eventId:randomUUID(),organizationId,actorUserId:request.auth!.sub,action:"sbom.ingested",targetType:"sbom",targetId:sbomId,metadata:{projectId,format:parsed.format,specVersion:parsed.specVersion,documentSha256:parsed.documentSha256,componentCount:parsed.componentCount}});
@@ -36,7 +37,8 @@ sbomsRouter.post(base,
   }catch(error){
    if(error&&typeof error==="object"&&"code"in error&&error.code===11000){
     const duplicate=await Sbom.findOne({organizationId:request.auth!.orgId,projectId,documentSha256:parsed.documentSha256}).select({sbomId:1}).lean();
-    response.status(409).json({error:{code:"SBOM_ALREADY_INGESTED",message:"This exact SBOM document has already been ingested for the project.",sbomId:duplicate?.sbomId??null}});return;
+    const duplicateId=duplicate&&!Array.isArray(duplicate)?(duplicate as {sbomId?:string}).sbomId:null;
+    response.status(409).json({error:{code:"SBOM_ALREADY_INGESTED",message:"This exact SBOM document has already been ingested for the project.",sbomId:duplicateId??null}});return;
    }
    next(error);
   }
