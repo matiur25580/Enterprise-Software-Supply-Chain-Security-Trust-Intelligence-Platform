@@ -1,4 +1,5 @@
 import test, { before, after } from "node:test";
+import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import express from "express";
 import mongoose from "mongoose";
@@ -40,7 +41,7 @@ test("persisted identity enforces tenant isolation, membership RBAC, and refresh
   });
 
   await Membership.create({
-    membershipId: crypto.randomUUID(),
+    membershipId: randomUUID(),
     organizationId: owner.organization.id,
     userId: secondOwner.user.id,
     role: "viewer",
