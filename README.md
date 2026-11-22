@@ -123,3 +123,8 @@ Projects accept JSON CycloneDX 1.x and SPDX 2.x SBOMs up to 2 MiB. ChainProof va
 ## Vulnerability intelligence foundation
 
 ChainProof can scan an ingested project SBOM against OSV.dev using versioned package URLs. The integration batches package queries, fetches full advisory records, maps advisories back to individual components, derives CVSS v3.0/v3.1 base scores where vectors are supplied, and stores affected/fixed version data with remediation guidance. Tenant-scoped scan and findings APIs are available. Scans are bounded and fail closed on upstream errors; unsupported CVSS v4 vectors are not guessed. See [Vulnerability intelligence architecture](docs/architecture/VULNERABILITY-INTELLIGENCE.md).
+
+
+## Web SBOM and vulnerability workspace
+
+The Components and Vulnerabilities screens now authenticate against the ChainProof API, list active projects and SBOM inventories, upload CycloneDX/SPDX JSON, trigger OSV scans, and display live project-scoped findings with severity, CVSS score, fixed versions, and remediation guidance. Configure `VITE_API_BASE_URL` for the API origin (defaults to `http://localhost:4000`). The web client keeps access/refresh tokens in memory only; access-token refresh is not yet automatic. See [Web SBOM workspace](docs/architecture/WEB-SBOM-WORKSPACE.md).
