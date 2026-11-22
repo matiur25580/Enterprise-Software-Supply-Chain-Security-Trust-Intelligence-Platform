@@ -7,7 +7,7 @@ type Project = {
 };
 type RepositoryLink = {
   repositoryId: number; fullName: string; htmlUrl: string; defaultBranch: string;
-  isPrivate: boolean; status: "active" | "suspended" | "removed"; installationId: number;
+  isPrivate: boolean; status: "active" | "suspended" | "removed"; installationId: number;\n  syncStatus?: "never" | "syncing" | "succeeded" | "failed"; lastSyncedAt?: string | null; lastSyncedCommitSha?: string | null; lastSyncedCommitAt?: string | null; syncError?: string | null;
 };
 type Session = {
   accessToken: string; refreshToken: string; expiresIn: number;
@@ -191,7 +191,7 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
     finally { setSaving(false); }
   }
 
-  async function connectGitHubApp() {
+  async function syncRepository(repositoryId: number) {\n    if (!session || !selected) return;\n    setSaving(true); setError(""); setNotice("");\n    try {\n      const org = encodeURIComponent(session.organization.id), project = encodeURIComponent(selected.projectId);\n      const result = await api<{ fullName: string; defaultBranch: string; lastSyncedCommitSha: string; syncStatus: string }>(`/integrations/github/organizations/${org}/projects/${project}/repositories/${repositoryId}/sync`, session.accessToken, { method: "POST" });\n      await loadLinks(session, selected.projectId);\n      setNotice(`Synced ${result.fullName} · ${result.defaultBranch} · ${result.lastSyncedCommitSha.slice(0, 12)}.`);\n    } catch (cause) { setError(cause instanceof Error ? cause.message : "Repository sync failed."); await loadLinks(session, selected.projectId).catch(() => undefined); }\n    finally { setSaving(false); }\n  }\n\n  async function connectGitHubApp() {
     if (!session) return;
     setError(""); setNotice("");
     try {
@@ -315,7 +315,7 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
               </div>
               <div className="project-repository"><div><GitBranch size={16} /><strong>Source repository</strong></div><a href={selected.repositoryUrl} target="_blank" rel="noreferrer">{selected.repositoryUrl}<ExternalLink size={13} /></a></div>
               <div className="project-repository linked-repositories"><div><ShieldCheck size={16} /><strong>Verified GitHub repository links</strong><span>{links.length}</span></div>
-                {links.length ? links.map((link) => <div className="linked-repository-row" key={link.repositoryId}><span><strong>{link.fullName}</strong><small>Repository ID {link.repositoryId} · {link.isPrivate ? "Private" : "Public"} · {link.defaultBranch}</small></span><span className={`project-status ${link.status === "active" ? "active" : "archived"}`}>{link.status}</span><a href={link.htmlUrl} target="_blank" rel="noreferrer" aria-label={`Open ${link.fullName}`}><ExternalLink size={13} /></a></div>) : <p>No GitHub App repository is linked to this project. Provider linking requires an owner/admin to install and verify the ChainProof GitHub App.</p>}
+                {links.length ? links.map((link) => <div className="linked-repository-row" key={link.repositoryId}><span><strong>{link.fullName}</strong><small>Repository ID {link.repositoryId} · {link.isPrivate ? "Private" : "Public"} · {link.defaultBranch}</small></span><span className={`project-status ${link.status === "active" ? "active" : "archived"}`}>{link.status}</span><span className="repository-sync-state">{link.syncStatus || "never"}{link.lastSyncedCommitSha ? ` · ${link.lastSyncedCommitSha.slice(0, 8)}` : ""}</span>{link.status === "active" && <button className="secondary-button" disabled={saving} onClick={() => syncRepository(link.repositoryId)}>Sync now</button>}<a href={link.htmlUrl} target="_blank" rel="noreferrer" aria-label={`Open ${link.fullName}`}><ExternalLink size={13} /></a></div>) : <p>No GitHub App repository is linked to this project. Provider linking requires an owner/admin to install and verify the ChainProof GitHub App.</p>}
               </div>
               <div className="project-repository github-connect-panel">
                 <div><ShieldCheck size={16} /><strong>GitHub App connection</strong><span>{installations.length} installation(s)</span></div>
