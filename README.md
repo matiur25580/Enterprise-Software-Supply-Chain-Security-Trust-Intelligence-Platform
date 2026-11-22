@@ -2,151 +2,139 @@
 
 **Enterprise Software Supply Chain Security & Trust Intelligence Platform**
 
-> Turn SBOMs, vulnerability intelligence, build provenance and policy decisions into evidence-backed release assurance.
+> Turn software composition, build provenance and security policy evidence into explainable release assurance.
 
-ChainProof is a security engineering platform concept for understanding software components, verifying how artifacts were built, and applying deterministic trust gates before release.
+## 1. Product vision
 
-## 1. Project status
+ChainProof is designed to help engineering and security teams inventory software components, correlate vulnerability intelligence, verify build provenance and govern release decisions through auditable evidence.
 
-**Main branch: foundation and architecture baseline.** Project registry, secure webhook ingress, SBOM intelligence and release provenance controls are being developed in stacked feature branches. Treat these capabilities as in progress until merged into main. A green dashboard or policy score alone does not prove a release is secure.
+**Trust principle:** cryptographic verification and deterministic policy enforcement are authoritative. AI-assisted analysis may explain evidence or suggest remediation, but it must never replace signature verification, policy evaluation or accountable human approval.
 
-## 2. Product problem and value
+## 2. Project status
 
-Modern software depends on transitive open-source packages, build systems, CI identities, registries and third-party suppliers. ChainProof aims to provide an auditable workflow for SBOM ingestion, vulnerability context, build provenance, artifact/signer verification, deterministic release gates, evidence-backed Release Trust Passports and human-reviewed security explanations.
+**Status: foundation and milestone-driven portfolio development.** Capabilities described here represent the product scope and should be considered implemented only when present on the selected branch with tests and CI evidence. The dashboard gallery contains synthetic illustrative SVGs, not screenshots from a live deployment.
 
-**Trust principle:** cryptographic verification and deterministic policy evaluation are authoritative. AI can summarize evidence, but cannot manufacture provenance or override a policy block.
+## 3. Core capabilities
 
-## 3. Capability map
+- **SBOM inventory:** ingest and normalize CycloneDX and SPDX software bills of materials.
+- **Vulnerability intelligence:** correlate components with advisories, severity, exploitability context and remediation guidance.
+- **Build provenance:** verify artifact digests, signer identity, attestations and SLSA-aligned provenance.
+- **Release Trust Passport:** assemble reviewable, evidence-backed assurance records for releases.
+- **Policy-as-code:** evaluate versioned controls and return explainable pass, warn or block outcomes.
+- **Dependency risk:** understand transitive dependency relationships, criticality and ownership.
+- **Supplier governance:** track supplier and component risk, exceptions and remediation.
+- **Incident evidence:** preserve correlated findings, decisions and investigation history.
+- **AI-assisted explanation:** produce evidence-linked summaries with human oversight for consequential actions.
 
-| Domain | Capability direction |
-| --- | --- |
-| Project registry | Tenant-scoped repositories, owners and criticality |
-| SBOM intelligence | CycloneDX / SPDX parsing, normalization and inventory |
-| Vulnerability context | CVE, OSV, KEV and exploitability correlation |
-| Provenance | SLSA / in-toto attestations, digest and builder verification |
-| Signing | Sigstore / Cosign identity and signature validation |
-| Policy-as-code | Versioned pass / warn / block rules with explainable outcomes |
-| Release Trust Passport | Evidence-linked release assurance record |
-| Governance | VEX, time-bound exceptions, approvals and audit history |
+## 4. Technology direction
 
-## 4. Technology and architecture
+- Web: React, TypeScript, Vite and Tailwind CSS.
+- API: Node.js, Express, TypeScript and Zod.
+- Data and jobs: MongoDB, Redis/BullMQ and object storage where enabled.
+- Integrations: GitHub, OSV, NVD, CycloneDX, SPDX and Sigstore/Cosign adapters.
+- Operations: Docker, GitHub Actions, structured logs and OpenTelemetry-oriented observability.
 
-The repository direction is a pnpm monorepo: React/TypeScript/Vite web, Node.js/Express/TypeScript/Zod API, MongoDB persistence, Redis/BullMQ and object storage as needed, plus GitHub, OSV, NVD, CycloneDX, SPDX and Sigstore integrations.
+Confirm actual package versions and enabled integrations from the checked-out branch and environment configuration.
 
-Security boundaries:
-1. Never execute untrusted source code or artifacts inside the API process.
-2. Verify artifact digests and signed attestations before trusting provenance claims.
-3. Treat SBOMs, webhooks and advisory feeds as untrusted input.
-4. Enforce tenant-scoped authorization for projects, artifacts and evidence.
-5. Include policy versions and evidence references in release decisions.
-6. Use idempotent, bounded ingestion with retry and dead-letter handling.
-7. Keep secrets in a secret manager and redact them from logs.
+## 5. Architecture and security principles
 
-## 5. Local development
+1. Enforce tenant isolation and authorization in service and data-access layers.
+2. Never execute untrusted repositories, build scripts or uploaded artifacts inside the API process.
+3. Make ingestion asynchronous, bounded, observable and idempotent.
+4. Record policy version, signer identity, evidence references and decision rationale.
+5. Treat SBOMs and attestations as untrusted input until schema and cryptographic checks pass.
+6. Keep credentials in a secret manager; use references rather than raw secrets in workflow definitions.
+7. Separate AI explanations from trusted verification and release-policy decisions.
+8. Make security exceptions time-bound, attributable and reviewable.
 
-Prerequisites: Node.js LTS, pinned pnpm version, Docker and MongoDB.
+## 6. Repository layout
 
-    pnpm install --frozen-lockfile
-    pnpm dev
-    pnpm typecheck
-    pnpm test
-    pnpm build
+The project is organized as a monorepo with API and web applications, shared tooling/contracts, infrastructure and architecture/security documentation. Refer to the selected branch for the current exact layout.
 
-Follow package scripts and environment templates on the selected branch. Never commit access tokens, signing keys, webhook secrets or production SBOMs.
+## 7. Local development
 
-## 6. Industry standards and threat-informed roadmap
+1. Install the Node.js and package-manager versions declared by the workspace.
+2. Review `.env.example` files and configure local-only credentials and services.
+3. Install dependencies using the committed lockfile and repository package manager.
+4. Start only the local services documented for the selected milestone.
+5. Run the scripts declared by root and application manifests.
+6. Run typecheck, tests, build and relevant security checks before proposing a merge.
 
-- **SLSA provenance:** align build evidence with the current specification and verify builder/source context.
-- **in-toto attestations:** preserve signed statements about artifact production and supply-chain steps.
-- **Sigstore / Cosign:** verify signatures and signer identity rather than trusting unsigned metadata.
-- **CycloneDX and SPDX:** accept versioned SBOM formats with strict schema and resource limits.
-- **VEX / KEV / EPSS:** distinguish affected, not-affected and under-investigation states; prioritize known exploited and likely exploitable findings.
-- **Policy-as-code:** version controls, explain decisions and fail closed for required evidence.
+Do not commit provider tokens, private keys, signing material, production SBOMs or confidential source metadata.
 
-References: [SLSA specification v1.2](https://slsa.dev/spec/v1.2/), [CycloneDX](https://cyclonedx.org/), [SPDX](https://spdx.dev/), [Sigstore](https://sigstore.dev/). These guide implementation; no SLSA level, certification or complete format conformance is claimed.
+## 8. Verification and release-quality strategy
 
-## 7. Security and responsible use
+- Validate SBOM schemas and normalize package identifiers before correlation.
+- Verify artifact digest and signature against trusted identity policy.
+- Preserve provenance and policy evaluation inputs for reproducibility.
+- Test malformed, oversized and adversarial ingestion payloads.
+- Exercise tenant boundaries, exception expiry and policy-version changes.
+- Monitor dependency advisories and keep CI actions and build tooling maintained.
 
-- Never run untrusted repository code as part of ingestion or analysis.
-- Enforce strict file size, parser depth, timeout and decompression limits.
-- Keep provenance claims separate from verified provenance.
-- Preserve evidence digests, policy versions, actor identity and decision timestamps.
-- Use synthetic project and vulnerability data in demos.
-- Production requires threat modelling, key management, incident response, retention policies and independent security review.
+## 9. Illustrative dashboard gallery
 
-## 8. Illustrative dashboard gallery
+The 12 SVGs below are **illustrative dashboard concepts**, not production screenshots. All values, components and events are synthetic. The single-column gallery is intended for full-width review.
 
-These 12 SVGs are **illustrative dashboard concepts**, not screenshots from a running security product. All project names, counts, vulnerabilities, attestations and policy outcomes are synthetic. The gallery is intentionally arranged in one column.
+### 01 — Software supply chain command center
+A high-level view of component exposure, release assurance and verification activity.
+![ChainProof software supply chain command center](docs/assets/dashboard/01-software-supply-chain-command-center.svg)
 
-### 01. Release Trust Command Center
-Executive view of release assurance, trusted builds and policy-blocked releases.
+### 02 — SBOM inventory explorer
+A component inventory concept for CycloneDX/SPDX coverage and dependency lineage.
+![ChainProof SBOM inventory explorer](docs/assets/dashboard/02-sbom-inventory-explorer.svg)
 
-![ChainProof Release Trust Command Center](docs/assets/dashboard/01-release-trust-command-center.svg)
+### 03 — Vulnerability intelligence
+An advisory triage view for severity context, exposure and remediation priority.
+![ChainProof vulnerability intelligence](docs/assets/dashboard/03-vulnerability-intelligence.svg)
 
-### 02. Software Component Inventory
-Dependency coverage, direct/transitive packages and ownership gaps.
+### 04 — Build provenance verification
+A verification workspace for artifact digests, signer identity and attestations.
+![ChainProof build provenance verification](docs/assets/dashboard/04-provenance-verification.svg)
 
-![ChainProof Software Component Inventory](docs/assets/dashboard/02-software-inventory.svg)
+### 05 — Release trust passport
+An evidence-backed release assurance summary with policy evaluation context.
+![ChainProof release trust passport](docs/assets/dashboard/05-release-trust-passport.svg)
 
-### 03. SBOM Ingestion Workbench
-CycloneDX/SPDX uploads, schema validation and quarantine outcomes.
+### 06 — Policy-as-code workbench
+A view of versioned controls, evaluation outcomes and explainable release decisions.
+![ChainProof policy-as-code workbench](docs/assets/dashboard/06-policy-as-code-workbench.svg)
 
-![ChainProof SBOM Ingestion Workbench](docs/assets/dashboard/03-sbom-ingestion-workbench.svg)
+### 07 — Dependency risk graph
+A conceptual view of transitive dependencies and critical package exposure.
+![ChainProof dependency risk graph](docs/assets/dashboard/07-dependency-risk-graph.svg)
 
-### 04. Vulnerability Intelligence
-Severity, exploitability context, KEV matches and remediation backlog.
+### 08 — Supplier risk workspace
+A governance view of component ownership, supplier criticality and remediation.
+![ChainProof supplier risk workspace](docs/assets/dashboard/08-supplier-risk-workspace.svg)
 
-![ChainProof Vulnerability Intelligence](docs/assets/dashboard/04-vulnerability-intelligence.svg)
+### 09 — Artifact integrity monitor
+A monitor for digest drift, signature status and artifact verification events.
+![ChainProof artifact integrity monitor](docs/assets/dashboard/09-artifact-integrity-monitor.svg)
 
-### 05. Build Provenance Verifier
-Artifact digests, builder identity, provenance coverage and verification failures.
+### 10 — Security exception governance
+A workflow for time-bound exceptions, approvers and compensating controls.
+![ChainProof security exception governance](docs/assets/dashboard/10-security-exception-governance.svg)
 
-![ChainProof Build Provenance Verifier](docs/assets/dashboard/05-build-provenance-verifier.svg)
+### 11 — Incident evidence timeline
+A timeline concept for correlated alerts, investigation notes and evidence references.
+![ChainProof incident evidence timeline](docs/assets/dashboard/11-incident-evidence-timeline.svg)
 
-### 06. Release Trust Passport
-Release-level evidence connecting artifacts, attestations, policies and approvals.
+### 12 — Compliance assurance report
+A summary of control coverage, evidence freshness and audit-ready release signals.
+![ChainProof compliance assurance report](docs/assets/dashboard/12-compliance-assurance-report.svg)
 
-![ChainProof Release Trust Passport](docs/assets/dashboard/06-release-trust-passport.svg)
+## 10. Documentation and contribution
 
-### 07. Policy-as-Code Workbench
-Deterministic rules and decision traces for pass, warn and block outcomes.
+Review `docs/architecture` and `docs/security` for current design decisions. Follow [SECURITY.md](SECURITY.md) for responsible disclosure and [CONTRIBUTING.md](CONTRIBUTING.md) for engineering and pull-request expectations.
 
-![ChainProof Policy-as-Code Workbench](docs/assets/dashboard/07-policy-as-code-workbench.svg)
+## 11. Roadmap themes
 
-### 08. Supplier & Component Risk
-Supplier exposure, critical dependencies and remediation ownership.
+- Expand SBOM ingestion and component normalization coverage.
+- Improve provenance verification and trusted-builder policy.
+- Add reproducible policy evaluations and richer release evidence.
+- Strengthen ingestion sandboxing, tenant isolation and abuse controls.
+- Improve end-to-end coverage, observability and operational recovery.
 
-![ChainProof Supplier & Component Risk](docs/assets/dashboard/08-supplier-risk-network.svg)
+## 12. License
 
-### 09. VEX & Exception Management
-Exploitability statements, time-bound waivers and approvals.
-
-![ChainProof VEX & Exception Management](docs/assets/dashboard/09-vex-exception-management.svg)
-
-### 10. Signing & Key Governance
-Signer identity, trust roots, key lifecycle, expiry and revocation signals.
-
-![ChainProof Signing & Key Governance](docs/assets/dashboard/10-signing-key-governance.svg)
-
-### 11. Incident Evidence Timeline
-Forensic event history linking security events, artifacts and accountable actors.
-
-![ChainProof Incident Evidence Timeline](docs/assets/dashboard/11-incident-evidence-timeline.svg)
-
-### 12. Audit & Compliance Overview
-Evidence coverage, mapped controls, audit history and review findings.
-
-![ChainProof Audit & Compliance Overview](docs/assets/dashboard/12-audit-and-compliance.svg)
-
-## 9. Roadmap
-
-1. Complete tenant-scoped project and repository registry.
-2. Harden webhook authentication, replay protection and idempotency.
-3. Complete bounded SBOM ingestion and vulnerability correlation.
-4. Verify signed provenance and artifact digests.
-5. Introduce versioned policy packs, VEX workflows and release evidence.
-6. Add security integration tests, operational metrics and incident runbooks.
-
-## 10. Contribution and license
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). License status is governed by the repository's license file; absent a license, all rights are reserved.
+No open-source license is applied unless a license file is present. All rights are otherwise reserved.
