@@ -137,4 +137,4 @@ The Components and Vulnerabilities screens now authenticate against the ChainPro
 
 ### GitHub App connection workspace
 
-The Projects workspace can start GitHub App installation, refresh and verify pending installations, discover repositories from an active installation, and link a selected provider repository to an active project. The API exposes tenant-scoped installation metadata; repository metadata is sourced from GitHub, not browser input. See [WEB-GITHUB-CONNECTION.md](docs/architecture/WEB-GITHUB-CONNECTION.md).
+The Projects workspace can start GitHub App installation, refresh and verify pending installations, discover repositories from an active installation, link a selected provider repository to an active project, and manually synchronize verified repository/default-branch commit metadata. The API exposes tenant-scoped installation metadata; repository metadata is sourced from GitHub, not browser input. See [WEB-GITHUB-CONNECTION.md](docs/architecture/WEB-GITHUB-CONNECTION.md).
