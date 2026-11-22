@@ -7,6 +7,7 @@ import { logger } from "./lib/logger.js";
 import { accessRouter } from "./routes/access.js";
 import { authRouter } from "./routes/auth.js";
 import { projectsRouter } from "./routes/projects.js";
+import { githubWebhooksRouter } from "./routes/github-webhooks.js";
 
 export const app: Express = express();
 app.disable("x-powered-by");
@@ -16,6 +17,7 @@ app.use(cors({
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 }));
+app.use("/api/v1/webhooks", githubWebhooksRouter);
 app.use(express.json({ limit: "1mb", strict: true }));
 app.use(pinoHttp({ logger }));
 
