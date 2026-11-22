@@ -44,6 +44,10 @@ app.use((_request, response) => {
 const errorHandler: ErrorRequestHandler = (error: unknown, _request, response, _next) => {
   logger.error({ err: error }, "Unhandled request error");
   if (response.headersSent) return;
+  if (error && typeof error === "object" && "type" in error && error.type === "entity.too.large") {
+    response.status(413).json({ error: { code: "REQUEST_TOO_LARGE", message: "The request exceeds the configured size limit." } });
+    return;
+  }
   response.status(500).json({ error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." } });
 };
 app.use(errorHandler);
