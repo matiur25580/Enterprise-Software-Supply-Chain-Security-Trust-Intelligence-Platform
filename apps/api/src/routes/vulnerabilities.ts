@@ -34,7 +34,7 @@ vulnerabilitiesRouter.post(`${base}/sboms/:sbomId/scan`,authenticate,requireOrga
    const key=componentKey(component),isAccepted=acceptedKeys.has(`${key}:${finding.vulnerabilityId}`);
    const values={componentKey:key,componentName:component.name,componentVersion:component.version,purl:finding.packageUrl,vulnerabilityId:finding.vulnerabilityId,summary:finding.summary,details:finding.details,aliases:finding.aliases,severity:finding.severity,cvssScore:finding.cvssScore,affectedVersions:finding.affectedVersions,fixedVersions:finding.fixedVersions,references:finding.references,recommendedAction:finding.recommendedAction,source:"OSV",lastScannedAt:scannedAt};
    return {updateOne:{filter:{organizationId,projectId,sbomId,componentKey:key,vulnerabilityId:finding.vulnerabilityId},update:{$set:{...values,...(isAccepted?{}:{status:"open"})},$setOnInsert:{findingId:randomUUID(),organizationId,projectId,sbomId,...(isAccepted?{status:"open"}:{})}},upsert:true}};
-  })));
+  }));
   if(operations.length)await VulnerabilityFinding.bulkWrite(operations,{ordered:false});
   await AuditEvent.create({eventId:randomUUID(),organizationId,actorUserId:request.auth!.sub,action:"vulnerability.scan_completed",targetType:"sbom",targetId:sbomId,metadata:{projectId,scannedPackages:result.scannedPackages,skippedPackages:result.skippedPackages,vulnerabilityCount:result.vulnerabilityCount,scannedAt}});
   const counts=await VulnerabilityFinding.aggregate([{ $match:{organizationId,projectId,sbomId,status:"open"}},{ $group:{_id:"$severity",count:{$sum:1}}}]);
