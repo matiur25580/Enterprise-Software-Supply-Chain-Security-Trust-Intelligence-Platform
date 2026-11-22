@@ -47,3 +47,13 @@ Repository URLs are metadata only. The API does not fetch or execute repository 
 - Audit writes are awaited for identity and project create/update operations.
 - Configure MongoDB backups, encryption at rest, network restrictions, alerting, and index migrations before production.
 - Add MFA, SSO, email verification, password recovery, account lockout, and invitation governance before broad enterprise rollout.
+
+## GitHub App and repository links
+
+GitHub App installation callbacks remain pending until verified against GitHub's App API. Verification requires the configured App ID, a valid RS256 App JWT, selected-repository mode, and read-only Contents/Metadata permissions. Installation tokens are ephemeral and scoped to those read permissions.
+
+- `GET /api/v1/integrations/github/organizations/:organizationId/projects/:projectId/repositories` — list a project's repository links; requires `projects:read`.
+- `POST /api/v1/integrations/github/organizations/:organizationId/projects/:projectId/repositories` — link a repository using only `installationId` and `repositoryId`; requires `integrations:manage`. Repository metadata is fetched from the verified provider inventory, not trusted from the client.
+- `DELETE /api/v1/integrations/github/organizations/:organizationId/projects/:projectId/repositories/:repositoryId` — soft-unlink with audit event; requires `integrations:manage`.
+
+Repository IDs are unique within an organization and cannot be linked to multiple projects in that organization. Signed GitHub installation suspend, unsuspend and delete events update installation and repository-link status. No source code is fetched or executed in this milestone. See [GitHub App installation and repository linking](../../../docs/architecture/GITHUB-APP-INSTALLATION.md).

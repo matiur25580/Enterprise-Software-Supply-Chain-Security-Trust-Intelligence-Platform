@@ -16,23 +16,25 @@ jobs:
   validate:
     name: Typecheck and build
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       NODE_ENV: test
       MONGODB_URI: mongodb://127.0.0.1:27017/chainproof_test?replicaSet=rs0
       AUTH_SESSION_SECRET: ci-only-secret-that-is-long-enough-for-testing-123456
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6.1.0
         with:
           version: 10.12.1
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7.1.0
         with:
           node-version: 22
+          package-manager-cache: false
       - name: Install
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Start MongoDB replica set
         run: |
           docker run -d --name chainproof-mongo -p 27017:27017 mongo:8.0 mongod --replSet rs0 --bind_ip_all

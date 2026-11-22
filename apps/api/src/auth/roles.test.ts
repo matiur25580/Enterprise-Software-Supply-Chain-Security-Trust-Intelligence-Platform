@@ -7,4 +7,8 @@ test("roles grant only explicitly mapped permissions", () => {
   assert.equal(hasPermission(["viewer"], "policies:write"), false);
   assert.equal(hasPermission(["auditor"], "audit:read"), true);
   assert.equal(hasPermission(["developer"], "members:manage"), false);
+  assert.equal(hasPermission(["org_owner"], "integrations:manage"), true);
+  assert.equal(hasPermission(["org_admin"], "integrations:manage"), true);
+  assert.equal(hasPermission(["security_analyst"], "integrations:manage"), false);
+  assert.equal(hasPermission(["viewer"], "integrations:manage"), false);
 });

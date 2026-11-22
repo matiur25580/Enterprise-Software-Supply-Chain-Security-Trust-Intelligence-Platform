@@ -23,3 +23,8 @@ The organization ID is derived from the authenticated session and active members
 - The model has compound tenant/status and tenant/slug indexes.
 
 This registry does not yet connect to source-control providers, fetch repository contents, install webhooks, or ingest SBOMs. Those integrations must use scoped credentials, explicit installation authorization, bounded asynchronous jobs, and verified webhook signatures. A repository URL is metadata only and is never fetched or executed by this API.
+
+
+## SBOM inventory extension
+
+Projects can now accept bounded JSON CycloneDX 1.x and SPDX 2.x documents through the project-scoped SBOM API. Uploads are tenant-scoped, deduplicated by SHA-256, normalized to component metadata, and audited. The parser retains package identifiers and license metadata but does not retain the original SBOM document or fetch/execute source. See [SBOM ingestion foundation](SBOM-INGESTION.md).

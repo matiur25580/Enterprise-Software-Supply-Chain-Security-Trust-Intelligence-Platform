@@ -3,7 +3,7 @@ export type Role = (typeof roles)[number];
 
 export const permissions = [
   "organization:read", "organization:update", "members:read", "members:invite", "members:manage",
-  "projects:read", "projects:write", "findings:read", "findings:triage", "policies:read", "policies:write",
+  "projects:read", "projects:write", "integrations:manage", "findings:read", "findings:triage", "policies:read", "policies:write",
   "audit:read", "settings:manage"
 ] as const;
 export type Permission = (typeof permissions)[number];
