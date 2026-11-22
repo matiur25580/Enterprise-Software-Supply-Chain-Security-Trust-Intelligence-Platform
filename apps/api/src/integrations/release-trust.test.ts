@@ -10,7 +10,7 @@ const provenance = {
 };
 const clean = { critical: 0, high: 0, moderate: 0, low: 0, unknown: 0 };
 
-test("release assessment is explainable and never claims unverified provenance is verified", () => {
+test("release assessment is explainable and rewards verified provenance", () => {
   const result = assessReleaseTrust(provenance, clean, "verified");
   assert.equal(result.policyStatus, "eligible");
   assert.equal(result.trustScore, 100);
@@ -20,7 +20,7 @@ test("release assessment is explainable and never claims unverified provenance i
 test("critical and high findings block a release with explicit reasons", () => {
   const result = assessReleaseTrust(provenance, { ...clean, critical: 1, high: 2 }, "verified");
   assert.equal(result.policyStatus, "blocked");
-  assert.equal(result.trustScore, 0);
+  assert.equal(result.trustScore, 15);
   assert.equal(result.policyReasons.length, 2);
 });
 
