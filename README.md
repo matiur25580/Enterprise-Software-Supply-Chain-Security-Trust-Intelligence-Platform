@@ -39,7 +39,8 @@ Modern software delivery depends on a complex graph of open-source packages, bui
 - Every authenticated request checks persisted session, user, organization, and membership; effective roles come from active membership state.
 - Tenant-scoped project registry with bounded listing, create/read/update/archive operations, organization-scoped MongoDB filters, strict validation, audit events, and a live React workspace for project lifecycle management.
 - GitHub App installation verification, selected-repository discovery, tenant-safe project linking, and installation lifecycle webhook reconciliation.
-- Bounded project-scoped CycloneDX 1.x and SPDX 2.x JSON SBOM ingestion, normalized component metadata, SHA-256 duplicate detection, and audit events.\n- OSV.dev vulnerability scanning by versioned PURL, advisory detail enrichment, CVSS v3 scoring, fixed-version recommendations, and tenant-scoped findings.
+- Bounded project-scoped CycloneDX 1.x and SPDX 2.x JSON SBOM ingestion, normalized component metadata, SHA-256 duplicate detection, and audit events.
+- OSV.dev vulnerability scanning by versioned PURL, advisory detail enrichment, CVSS v3 scoring, fixed-version recommendations, and tenant-scoped findings.
 - Authentication routes use strict Zod validation and IP-based rate limiting. MongoDB registration transactions require a replica-set deployment.
 - MFA, SSO, email verification, password recovery, invitations, and production-grade GitHub App installation administration remain future work.
 
@@ -94,7 +95,11 @@ Please do not report vulnerabilities in public issues. Follow the process in [SE
 License selection will be made before the first public release.
 
 
-## Tenant-scoped project registry UI\n\nThe Projects workspace now authenticates against the ChainProof API and supports searchable active/archived project lists, project creation, metadata editing, and soft archival. It displays repository metadata and any verified GitHub repository links already associated with the selected project. Tenant ownership is always derived by the API from the authenticated session. Configure `VITE_API_BASE_URL` as described in the web workspace documentation.\n\n## GitHub source-control integration foundation
+## Tenant-scoped project registry UI
+
+The Projects workspace now authenticates against the ChainProof API and supports searchable active/archived project lists, project creation, metadata editing, and soft archival. It displays repository metadata and any verified GitHub repository links already associated with the selected project. Tenant ownership is always derived by the API from the authenticated session. Configure `VITE_API_BASE_URL` as described in [Web project registry](docs/architecture/WEB-PROJECT-REGISTRY.md).
+
+## GitHub source-control integration foundation
 
 The API now exposes a signed GitHub webhook intake endpoint at `POST /api/v1/webhooks/github`. Configure `GITHUB_WEBHOOK_SECRET` from GitHub App settings to enable it. The endpoint validates the raw-body HMAC-SHA256 signature, bounds request size and header values, and records idempotent delivery metadata with a payload fingerprint. It intentionally does not persist raw payloads, access tokens, or repository contents, and does not automatically bind installations to tenants. See [GitHub source-control integration architecture](docs/architecture/GITHUB-SOURCE-CONTROL-INTEGRATION.md).
 
