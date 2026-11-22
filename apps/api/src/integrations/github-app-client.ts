@@ -101,3 +101,37 @@ export async function getGitHubRepositorySnapshot(input:{installationId:number;o
  if(!parsedCommit.success)throw new GitHubAppError(502,"GitHub returned invalid default-branch commit metadata.");
  return {repository:parsedRepository.data,commit:parsedCommit.data};
 }
+
+export interface GitHubSbomFile { path:string;sha:string;size:number;content:Buffer; }
+const MAX_SBOM_FILE_BYTES=1024*1024;
+const MAX_SBOM_CANDIDATES=10;
+const MAX_SBOM_TOTAL_BYTES=5*1024*1024;
+export function isGitHubSbomCandidatePath(path:string):boolean {
+ const normalized=path.toLowerCase();
+ const fileName=normalized.split("/").pop()??"";
+ return fileName.endsWith(".cdx.json")||fileName.endsWith(".spdx.json")||
+  fileName.endsWith(".sbom.json")||fileName==="sbom.json"||fileName==="bom.json"||
+  fileName.endsWith(".cyclonedx.json");
+}
+export async function getGitHubRepositorySbomFiles(input:{installationId:number;owner:string;repository:string;commitSha:string}):Promise<{files:GitHubSbomFile[];candidateCount:number;truncated:boolean}> {
+ const token=await createInstallationToken(input.installationId);
+ const tree=await githubRequest<{truncated:boolean;tree:Array<{path:string;mode:string;type:string;sha:string;size?:number}>}>(`/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/git/trees/${encodeURIComponent(input.commitSha)}?recursive=1`,token);
+ const parsed=z.object({truncated:z.boolean(),tree:z.array(z.object({path:z.string().max(1024),mode:z.string(),type:z.string(),sha:z.string().regex(/^[a-f0-9]{40}$/i),size:z.number().int().nonnegative().optional()}))}).safeParse(tree);
+ if(!parsed.success)throw new GitHubAppError(502,"GitHub returned an invalid repository tree.");
+ if(parsed.data.truncated)throw new GitHubAppError(422,"The repository tree is truncated; narrow the repository or split the SBOM inventory before retrying.");
+ if(parsed.data.tree.length>10000)throw new GitHubAppError(422,"The repository tree exceeds the supported 10,000-entry limit.");
+ const candidates=parsed.data.tree.filter(item=>item.type==="blob"&&isGitHubSbomCandidatePath(item.path));
+ if(candidates.length>MAX_SBOM_CANDIDATES)throw new GitHubAppError(422,`The repository contains more than ${MAX_SBOM_CANDIDATES} candidate SBOM files; remove ambiguous candidates and retry.`);
+ const files:GitHubSbomFile[]=[];let totalBytes=0;
+ for(const candidate of candidates){
+  if(candidate.size===undefined||candidate.size<=0||candidate.size>MAX_SBOM_FILE_BYTES)continue;
+  totalBytes+=candidate.size;
+  if(totalBytes>MAX_SBOM_TOTAL_BYTES)throw new GitHubAppError(422,"Candidate SBOM files exceed the 5 MiB aggregate download limit.");
+  const response=await githubRequest<{type:string;encoding:string;size:number;content:string;sha:string}>(`/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/contents/${candidate.path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(input.commitSha)}`,token);
+  if(response.type!=="file"||response.encoding!=="base64"||response.sha!==candidate.sha||response.size!==candidate.size||typeof response.content!=="string")throw new GitHubAppError(502,"GitHub returned inconsistent SBOM file metadata.");
+  const content=Buffer.from(response.content.replace(/\s/g,""),"base64");
+  if(content.length!==candidate.size||content.length>MAX_SBOM_FILE_BYTES)throw new GitHubAppError(502,"GitHub returned an invalid or oversized SBOM file.");
+  files.push({path:candidate.path,sha:candidate.sha,size:candidate.size,content});
+ }
+ return {files,candidateCount:candidates.length,truncated:false};
+}
