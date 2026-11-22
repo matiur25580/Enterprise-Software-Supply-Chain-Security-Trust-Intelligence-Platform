@@ -26,8 +26,12 @@ const createReleaseSchema = z.object({
     sourceCommitSha: z.string().regex(/^[a-f0-9]{40}$/i),
     builderIdentity: z.string().trim().min(1).max(300),
     buildRunUrl: z.string().trim().url().max(2048).refine(value => value.startsWith("https://"), "Build run URL must use HTTPS."),
-    attestationDigest: z.string().regex(/^[a-f0-9]{64}$/i).optional()
-  }).strict()
+  }).strict(),
+  attestation: z.object({
+    payloadType: z.literal(DSSE_PAYLOAD_TYPE),
+    payload: z.string().min(1).max(350_000),
+    signatures: z.array(z.object({ keyid: z.string().min(1).max(128), sig: z.string().min(1).max(2048) }).strict()).min(1).max(5)
+  }).strict().optional()
 }).strict();
 const param = (value: string | string[] | undefined): string | null =>
   typeof value === "string" && value.length > 0 ? value : null;
@@ -83,7 +87,14 @@ releasesRouter.post(base,
           const [createdRelease] = await SoftwareRelease.create([{
             releaseId, organizationId, projectId, sbomId: parsed.data.sbomId,
             version: parsed.data.version, artifactSha256: parsed.data.artifactSha256,
-            provenance: parsed.data.provenance, provenanceVerification: "not_verified",
+            provenance: { ...parsed.data.provenance, attestationDigest: attestationVerification.envelopeSha256 },
+            provenanceVerification: attestationVerification.status,
+            attestationVerification: {
+              keyId: attestationVerification.keyId,
+              envelopeSha256: attestationVerification.envelopeSha256,
+              verifiedAt: attestationVerification.status === "verified" ? new Date() : null,
+              reasons: attestationVerification.reasons
+            },
             ...assessment, createdByUserId: request.auth!.sub
           }], { session });
           await AuditEvent.create([{
