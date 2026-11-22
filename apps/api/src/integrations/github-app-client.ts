@@ -106,7 +106,7 @@ export async function getGitHubRepositorySnapshot(input:{installationId:number;o
 export interface GitHubSbomFile { path:string;sha:string;size:number;content:Buffer; }
 const MAX_SBOM_FILE_BYTES=1024*1024;
 const MAX_SBOM_TOTAL_BYTES=5*1024*1024;
-export async function getGitHubRepositorySbomFiles(input:{installationId:number;owner:string;repository:string;commitSha:string}):Promise<{files:GitHubSbomFile[];candidateCount:number;truncated:boolean}> {
+export async function getGitHubRepositorySbomFiles(input:{installationId:number;owner:string;repository:string;commitSha:string}):Promise<{files:GitHubSbomFile[];candidateCount:number;truncated:boolean;skippedCandidates:Array<{path:string;reason:string}>}> {
  const token=await createInstallationToken(input.installationId);
  const tree=await githubRequest<{truncated:boolean;tree:Array<{path:string;mode:string;type:string;sha:string;size?:number}>}>(`/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/git/trees/${encodeURIComponent(input.commitSha)}?recursive=1`,token);
  const parsed=z.object({truncated:z.boolean(),tree:z.array(z.object({path:z.string().max(1024),mode:z.string(),type:z.string(),sha:z.string().regex(/^[a-f0-9]{40}$/i),size:z.number().int().nonnegative().optional()}))}).safeParse(tree);
@@ -114,9 +114,9 @@ export async function getGitHubRepositorySbomFiles(input:{installationId:number;
  let candidatePaths:string[];
  try{candidatePaths=boundedSbomCandidatePaths(parsed.data.tree,parsed.data.truncated);}catch(error){throw new GitHubAppError(422,error instanceof Error?error.message:"The repository tree exceeds discovery limits.");}
  const candidates=parsed.data.tree.filter(item=>candidatePaths.includes(item.path));
- const files:GitHubSbomFile[]=[];let totalBytes=0;
+ const files:GitHubSbomFile[]=[];const skippedCandidates:Array<{path:string;reason:string}>=[];let totalBytes=0;
  for(const candidate of candidates){
-  if(candidate.size===undefined||candidate.size<=0||candidate.size>MAX_SBOM_FILE_BYTES)continue;
+  if(candidate.size===undefined||candidate.size<=0||candidate.size>MAX_SBOM_FILE_BYTES){skippedCandidates.push({path:candidate.path,reason:"Candidate size is missing, empty, or exceeds the 1 MiB file limit."});continue;}
   totalBytes+=candidate.size;
   if(totalBytes>MAX_SBOM_TOTAL_BYTES)throw new GitHubAppError(422,"Candidate SBOM files exceed the 5 MiB aggregate download limit.");
   const response=await githubRequest<{type:string;encoding:string;size:number;content:string;sha:string}>(`/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/contents/${candidate.path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(input.commitSha)}`,token);
@@ -125,5 +125,5 @@ export async function getGitHubRepositorySbomFiles(input:{installationId:number;
   if(content.length!==candidate.size||content.length>MAX_SBOM_FILE_BYTES)throw new GitHubAppError(502,"GitHub returned an invalid or oversized SBOM file.");
   files.push({path:candidate.path,sha:candidate.sha,size:candidate.size,content});
  }
- return {files,candidateCount:candidates.length,truncated:false};
+ return {files,candidateCount:candidates.length,truncated:false,skippedCandidates};
 }
