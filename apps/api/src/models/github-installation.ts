@@ -10,8 +10,12 @@ export const GitHubInstallState:Model<any>=(mongoose.models.GitHubInstallState a
 const installationSchema=new Schema({
  installationId:{type:Number,required:true,unique:true,immutable:true},
  organizationId:{type:String,required:true,immutable:true,unique:true},
+ accountId:{type:Number,default:null},
  accountLogin:{type:String,default:null,maxlength:100},
  accountType:{type:String,enum:["Organization","User",null],default:null},
+ appId:{type:Number,default:null},
+ repositorySelection:{type:String,enum:["selected","all",null],default:null},
+ permissions:{type:Schema.Types.Mixed,default:{}},
  status:{type:String,enum:["pending_verification","active","suspended","removed"],default:"pending_verification",required:true},
  connectedByUserId:{type:String,required:true,immutable:true},
  verifiedAt:{type:Date,default:null}
