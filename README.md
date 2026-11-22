@@ -102,3 +102,8 @@ This is webhook ingress foundation only; installation authorization, encrypted t
 ## GitHub App installation foundation
 
 Milestone 5 now includes an owner/admin-authorized GitHub App installation start flow, signed short-lived state, one-time nonce consumption, current membership revalidation and a pending-verification installation record. Configure `GITHUB_APP_SLUG` to enable the install URL. See [GitHub App installation architecture](docs/architecture/GITHUB-APP-INSTALLATION.md). Installation records remain pending until a future provider-verification worker validates them through GitHub's App API; no token or private key is stored.
+
+
+## GitHub App verification and repository discovery
+
+ChainProof can verify a pending GitHub App installation against GitHub's App API using a short-lived RS256 App JWT, require selected-repository mode and read-only Contents/Metadata permissions, then discover installed repositories with an ephemeral installation token. Set `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY` through a deployment secret manager; never commit credentials. See [GitHub App installation architecture](docs/architecture/GITHUB-APP-INSTALLATION.md). Repository-to-project linking and source ingestion are not yet implemented.
