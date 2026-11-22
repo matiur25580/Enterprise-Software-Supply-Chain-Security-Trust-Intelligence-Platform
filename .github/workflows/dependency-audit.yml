@@ -2,7 +2,7 @@ name: Dependency security audit
 
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: ["feat/**"]
   pull_request:
   schedule:
     - cron: "17 5 * * 1"
