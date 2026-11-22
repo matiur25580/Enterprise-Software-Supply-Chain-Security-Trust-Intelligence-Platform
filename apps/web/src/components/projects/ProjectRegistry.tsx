@@ -192,6 +192,20 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
     finally { setSaving(false); }
   }
 
+
+  async function discoverRepositorySboms(repositoryId: number) {
+    if (!session || !selected) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const org = encodeURIComponent(session.organization.id), project = encodeURIComponent(selected.projectId);
+      const result = await api<{ fullName: string; commitSha: string; candidateCount: number; downloadedCount: number; ingested: Array<{ sbomId: string; path: string; componentCount: number }>; duplicates: Array<{ path: string }>; skippedCount: number; skipped: Array<{ path: string; reason: string }> }>(`/integrations/github/organizations/${org}/projects/${project}/repositories/${repositoryId}/sbom-discovery`, session.accessToken, { method: "POST" });
+      await loadLinks(session, selected.projectId);
+      const details = result.ingested.map((item) => `${item.path} (${item.componentCount} components)`).join(", ");
+      setNotice(`SBOM discovery on ${result.fullName}: ${result.ingested.length} ingested, ${result.duplicates.length} already present, ${result.skippedCount} skipped. ${details}`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "SBOM discovery failed."); }
+    finally { setSaving(false); }
+  }
+
   async function syncRepository(repositoryId: number) {
     if (!session || !selected) return;
     setSaving(true); setError(""); setNotice("");
@@ -328,7 +342,7 @@ export function ProjectRegistry({ hidden = false }: { hidden?: boolean }) {
               </div>
               <div className="project-repository"><div><GitBranch size={16} /><strong>Source repository</strong></div><a href={selected.repositoryUrl} target="_blank" rel="noreferrer">{selected.repositoryUrl}<ExternalLink size={13} /></a></div>
               <div className="project-repository linked-repositories"><div><ShieldCheck size={16} /><strong>Verified GitHub repository links</strong><span>{links.length}</span></div>
-                {links.length ? links.map((link) => <div className="linked-repository-row" key={link.repositoryId}><span><strong>{link.fullName}</strong><small>Repository ID {link.repositoryId} · {link.isPrivate ? "Private" : "Public"} · {link.defaultBranch}</small></span><span className={`project-status ${link.status === "active" ? "active" : "archived"}`}>{link.status}</span><span className="repository-sync-state">{link.syncStatus || "never"}{link.lastSyncedCommitSha ? ` · ${link.lastSyncedCommitSha.slice(0, 8)}` : ""}</span>{link.status === "active" && <button className="secondary-button" disabled={saving} onClick={() => syncRepository(link.repositoryId)}>Sync now</button>}<a href={link.htmlUrl} target="_blank" rel="noreferrer" aria-label={`Open ${link.fullName}`}><ExternalLink size={13} /></a></div>) : <p>No GitHub App repository is linked to this project. Provider linking requires an owner/admin to install and verify the ChainProof GitHub App.</p>}
+                {links.length ? links.map((link) => <div className="linked-repository-row" key={link.repositoryId}><span><strong>{link.fullName}</strong><small>Repository ID {link.repositoryId} · {link.isPrivate ? "Private" : "Public"} · {link.defaultBranch}</small></span><span className={`project-status ${link.status === "active" ? "active" : "archived"}`}>{link.status}</span><span className="repository-sync-state">{link.syncStatus || "never"}{link.lastSyncedCommitSha ? ` · ${link.lastSyncedCommitSha.slice(0, 8)}` : ""}</span>{link.status === "active" && <button className="secondary-button" disabled={saving} onClick={() => syncRepository(link.repositoryId)}>Sync now</button><button className="secondary-button" disabled={saving} onClick={() => discoverRepositorySboms(link.repositoryId)}>Discover SBOMs</button>}<a href={link.htmlUrl} target="_blank" rel="noreferrer" aria-label={`Open ${link.fullName}`}><ExternalLink size={13} /></a></div>) : <p>No GitHub App repository is linked to this project. Provider linking requires an owner/admin to install and verify the ChainProof GitHub App.</p>}
               </div>
               <div className="project-repository github-connect-panel">
                 <div><ShieldCheck size={16} /><strong>GitHub App connection</strong><span>{installations.length} installation(s)</span></div>
