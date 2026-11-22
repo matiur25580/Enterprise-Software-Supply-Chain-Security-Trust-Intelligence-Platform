@@ -15,3 +15,17 @@ test("GitHub App JWT is RS256 signed with bounded lifetime",()=>{
  const verifier=createVerify("RSA-SHA256");verifier.update(parts[0]+"."+parts[1]);verifier.end();
  assert.equal(verifier.verify(publicKey,Buffer.from(parts[2]!,"base64url")),true);
 });
+
+import {GitHubAppError,validateGitHubInstallation,type VerifiedGitHubInstallation} from "./github-app-client.js";
+const validInstallation:VerifiedGitHubInstallation={
+ id:456,app_id:123456,account:{id:789,login:"acme",type:"Organization"},
+ repository_selection:"selected",permissions:{contents:"read",metadata:"read"},target_id:789
+};
+test("GitHub installation verification requires matching App, account and least-privilege permissions",()=>{
+ assert.equal(validateGitHubInstallation(456,validInstallation,"123456"),validInstallation);
+ assert.throws(()=>validateGitHubInstallation(999,validInstallation,"123456"),GitHubAppError);
+ assert.throws(()=>validateGitHubInstallation(456,validInstallation,"999999"),GitHubAppError);
+ assert.throws(()=>validateGitHubInstallation(456,{...validInstallation,repository_selection:"all"},"123456"),GitHubAppError);
+ assert.throws(()=>validateGitHubInstallation(456,{...validInstallation,permissions:{contents:"write",metadata:"read"}},"123456"),GitHubAppError);
+ assert.throws(()=>validateGitHubInstallation(456,{...validInstallation,permissions:{contents:"read",metadata:"read",administration:"write"}},"123456"),GitHubAppError);
+});
