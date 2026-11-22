@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {generateKeyPairSync,createVerify} from "node:crypto";
-import {createGitHubAppJwt} from "./github-app-client.js";
+import {createGitHubAppJwt,GitHubAppError,validateGitHubInstallation,type VerifiedGitHubInstallation} from "./github-app-client.js";
 test("GitHub App JWT is RS256 signed with bounded lifetime",()=>{
  const {privateKey,publicKey}=generateKeyPairSync("rsa",{modulusLength:2048});
  const now=1_800_000_000;
@@ -16,7 +16,6 @@ test("GitHub App JWT is RS256 signed with bounded lifetime",()=>{
  assert.equal(verifier.verify(publicKey,Buffer.from(parts[2]!,"base64url")),true);
 });
 
-import {GitHubAppError,validateGitHubInstallation,type VerifiedGitHubInstallation} from "./github-app-client.js";
 const validInstallation:VerifiedGitHubInstallation={
  id:456,app_id:123456,account:{id:789,login:"acme",type:"Organization"},
  repository_selection:"selected",permissions:{contents:"read",metadata:"read"},target_id:789
