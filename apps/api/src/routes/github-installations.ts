@@ -200,7 +200,7 @@ githubInstallationsRouter.post("/organizations/:organizationId/projects/:project
   }
  }
 );
-\ngithubInstallationsRouter.delete("/organizations/:organizationId/projects/:projectId/repositories/:repositoryId",
+githubInstallationsRouter.delete("/organizations/:organizationId/projects/:projectId/repositories/:repositoryId",
  authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
  async(request:Request,response:Response,next:NextFunction)=>{
   const projectId=typeof request.params.projectId==="string"?request.params.projectId:"";
