@@ -148,28 +148,41 @@ export async function rotateRefreshToken(token: string) {
   const nextToken = createRefreshToken();
   const nextHash = hashRefreshToken(nextToken);
   const now = new Date();
-  const rotated = await IdentitySession.findOneAndUpdate(
-    { sessionId: current.sessionId, refreshTokenHash: oldHash, revokedAt: null, expiresAt: { $gt: now } },
-    { $set: { refreshTokenHash: nextHash, lastUsedAt: now }, $addToSet: { previousRefreshTokenHashes: oldHash } },
-    { new: true }
-  );
+  const dbSession = await mongoose.startSession();
+  let rotated = false;
+  try {
+    await dbSession.withTransaction(async () => {
+      rotated = false;
+      const updated = await IdentitySession.findOneAndUpdate(
+        { sessionId: current.sessionId, refreshTokenHash: oldHash, revokedAt: null, expiresAt: { $gt: now } },
+        { $set: { refreshTokenHash: nextHash, lastUsedAt: now }, $addToSet: { previousRefreshTokenHashes: oldHash } },
+        { new: true, session: dbSession }
+      );
+      if (!updated) return;
+      await persistAudit({
+        organizationId: current.organizationId, actorUserId: current.userId,
+        action: "identity.refresh_rotated", targetType: "session", targetId: current.sessionId
+      }, dbSession);
+      rotated = true;
+    });
+  } finally {
+    await dbSession.endSession();
+  }
   if (!rotated) {
     const raced = await IdentitySession.findOne({ sessionId: current.sessionId }).select("+previousRefreshTokenHashes");
-    if (raced && classifyRefreshToken(oldHash, null, raced.previousRefreshTokenHashes) === "replay" && !raced.revokedAt) {
-      raced.revokedAt = now;
-      await raced.save();
-      await persistAudit({
-        organizationId: raced.organizationId, actorUserId: raced.userId,
-        action: "identity.refresh_reuse_detected", targetType: "session", targetId: raced.sessionId
-      });
+    if (raced && classifyRefreshToken(oldHash, null, raced.previousRefreshTokenHashes) === "replay") {
+      if (!raced.revokedAt) {
+        raced.revokedAt = now;
+        await raced.save();
+        await persistAudit({
+          organizationId: raced.organizationId, actorUserId: raced.userId,
+          action: "identity.refresh_reuse_detected", targetType: "session", targetId: raced.sessionId
+        });
+      }
       throw new IdentityError("REFRESH_TOKEN_REUSE", 401, "The session has been revoked. Please sign in again.");
     }
     throw new IdentityError("INVALID_REFRESH_TOKEN", 401, "The refresh token is invalid or expired.");
   }
-  await persistAudit({
-    organizationId: current.organizationId, actorUserId: current.userId,
-    action: "identity.refresh_rotated", targetType: "session", targetId: current.sessionId
-  });
   return {
     accessToken: issueAccessToken(current.userId, current.organizationId, current.sessionId, membership.role as Role),
     refreshToken: nextToken,
