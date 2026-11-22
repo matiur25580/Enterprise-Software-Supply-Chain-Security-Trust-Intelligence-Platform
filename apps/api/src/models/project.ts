@@ -2,7 +2,7 @@ import { Schema, model, models } from "mongoose";
 
 const projectSchema = new Schema({
   projectId: { type: String, required: true, unique: true, immutable: true },
-  organizationId: { type: String, required: true, immutable: true, index: true },
+  organizationId: { type: String, required: true, immutable: true },
   name: { type: String, required: true, trim: true, maxlength: 120 },
   slug: { type: String, required: true, lowercase: true, trim: true, maxlength: 63 },
   description: { type: String, default: "", trim: true, maxlength: 1000 },
@@ -15,6 +15,5 @@ const projectSchema = new Schema({
 
 projectSchema.index({ organizationId: 1, slug: 1 }, { unique: true, name: "projects_org_slug_unique" });
 projectSchema.index({ organizationId: 1, status: 1, updatedAt: -1 }, { name: "projects_org_status_updated" });
-projectSchema.index({ organizationId: 1, projectId: 1 }, { unique: true, name: "projects_org_project_unique" });
 
 export const Project = models.Project ?? model("Project", projectSchema);
