@@ -146,7 +146,7 @@ Illustrative software assurance view showing a representative security operator 
 
 ## 8. Engineering delivery
 
-GitHub Actions includes CI, CodeQL, secret scanning and dependency auditing. Review live advisory status before release. Remaining priorities include committed frozen pnpm lockfiles, resolving residual low/moderate dependency advisories, tenant authorization integration tests, end-to-end accessibility checks, immutable action pinning, observability and disaster-recovery exercises.
+GitHub Actions includes CI, CodeQL, secret scanning and dependency auditing. The latest feature-branch audit against the committed frozen pnpm lockfile reports no known vulnerabilities. Continue monitoring new advisories; remaining priorities include tenant authorization integration tests, end-to-end accessibility checks, immutable action pinning, observability and disaster-recovery exercises.
 
 ## 9. Documentation
 
@@ -159,7 +159,7 @@ GitHub Actions includes CI, CodeQL, secret scanning and dependency auditing. Rev
 
 1. Expand provenance conformance and trust-root lifecycle management.
 2. Add continuous SBOM rescans, exploitability enrichment and remediation SLAs.
-3. Add immutable frozen lockfiles and eliminate remaining dependency advisories.
+3. Keep the committed frozen pnpm lockfile current and monitor newly disclosed advisories.
 4. Expand cross-tenant authorization, route integration and browser tests.
 5. Add signed audit export, operational metrics, backup/restore validation and production runbooks.
 
