@@ -76,3 +76,28 @@ export async function listGitHubInstallationRepositories(installationId:number):
  }
  return {repositories,totalCount,hasMore:repositories.length<totalCount};
 }
+
+export interface GitHubRepositorySnapshot {
+ id:number;name:string;full_name:string;private:boolean;html_url:string;default_branch:string;
+ pushed_at:string|null;updated_at:string;archived:boolean;disabled:boolean;
+}
+export interface GitHubBranchCommit {
+ sha:string;commit:{committer:{date:string|null};author:{date:string|null};message:string};
+}
+export async function getGitHubRepositorySnapshot(input:{installationId:number;owner:string;repository:string}):Promise<{repository:GitHubRepositorySnapshot;commit:GitHubBranchCommit}> {
+ const token=await createInstallationToken(input.installationId);
+ const repository=await githubRequest<GitHubRepositorySnapshot>(`/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}`,token);
+ const parsedRepository=z.object({
+  id:z.number().int().positive(),name:z.string().min(1).max(100),full_name:z.string().min(1).max(200),
+  private:z.boolean(),html_url:z.string().url(),default_branch:z.string().min(1).max(255),
+  pushed_at:z.string().datetime().nullable(),updated_at:z.string().datetime(),archived:z.boolean(),disabled:z.boolean()
+ }).safeParse(repository);
+ if(!parsedRepository.success||parsedRepository.data.id<=0)throw new GitHubAppError(502,"GitHub returned invalid repository metadata.");
+ const commit=await githubRequest<GitHubBranchCommit>(`/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/commits/${encodeURIComponent(parsedRepository.data.default_branch)}`,token);
+ const parsedCommit=z.object({
+  sha:z.string().regex(/^[a-f0-9]{40}$/i),
+  commit:z.object({committer:z.object({date:z.string().datetime().nullable()}),author:z.object({date:z.string().datetime().nullable()}),message:z.string().max(10000)})
+ }).safeParse(commit);
+ if(!parsedCommit.success)throw new GitHubAppError(502,"GitHub returned invalid default-branch commit metadata.");
+ return {repository:parsedRepository.data,commit:parsedCommit.data};
+}
