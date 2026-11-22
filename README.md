@@ -4,7 +4,7 @@
 
 ChainProof helps engineering and security teams understand, verify, govern, and continuously improve the integrity of the software they ship. It brings software inventory, vulnerability intelligence, build provenance, policy decisions, and release evidence into one auditable workflow.
 
-> **Project status:** Early implementation · Enterprise foundation, security command center, persistent identity foundation, and initial tenant-scoped project registry are in progress. Dashboard metrics remain illustrative sample data.
+> **Project status:** Early implementation · Enterprise foundation, security command center, persistent identity, tenant-scoped project registry, GitHub App repository linking, and bounded SBOM ingestion are implemented in draft milestone branches. Dashboard metrics remain illustrative sample data.
 
 ## Product vision
 
@@ -38,6 +38,8 @@ Modern software delivery depends on a complex graph of open-source packages, bui
 - MongoDB identity models, organization registration, organization-scoped login, short-lived signed access tokens, hashed opaque refresh-token rotation, replay-triggered revocation, and logout.
 - Every authenticated request checks persisted session, user, organization, and membership; effective roles come from active membership state.
 - Tenant-scoped project registry with bounded listing, create/read/update/archive operations, organization-scoped MongoDB filters, strict validation, and audit events.
+- GitHub App installation verification, selected-repository discovery, tenant-safe project linking, and installation lifecycle webhook reconciliation.
+- Bounded project-scoped CycloneDX 1.x and SPDX 2.x JSON SBOM ingestion, normalized component metadata, SHA-256 duplicate detection, and audit events.
 - Authentication routes use strict Zod validation and IP-based rate limiting. MongoDB registration transactions require a replica-set deployment.
 - MFA, SSO, email verification, password recovery, invitations, source-control provider connections, and SBOM ingestion remain future work.
 
@@ -77,7 +79,7 @@ Copy `.env.example` to a local environment file, start a MongoDB replica set, th
 - [x] Milestone 2 — application shell and design system
 - [ ] Milestone 3 — identity, organizations, RBAC, and tenant isolation (persistent identity and session lifecycle foundation implemented; enterprise account controls remain)
 - [ ] Milestone 4 — project and source-control intelligence (tenant-scoped project registry foundation implemented)
-- [ ] Milestone 5 — SBOM ingestion and component inventory
+- [x] Milestone 5 — GitHub App integration foundation, tenant repository linking, and bounded SBOM ingestion foundation
 - [ ] Milestone 6 — vulnerability intelligence and remediation workflows
 - [ ] Milestone 7 — provenance verification and Release Trust Passport
 - [ ] Milestone 8 — policy governance, evidence, and audit
@@ -111,3 +113,8 @@ ChainProof can verify a pending GitHub App installation against GitHub's App API
 ### GitHub repository linking
 
 Verified GitHub App installations can discover repositories and link selected repository IDs to tenant-owned projects. ChainProof validates every selection against GitHub's current installation inventory and stores provider metadata only. Signed installation suspend/delete webhooks update linked repository status. Source ingestion and SBOM analysis are subsequent milestones. See [GitHub App installation and repository linking](docs/architecture/GITHUB-APP-INSTALLATION.md).
+
+
+## SBOM ingestion foundation
+
+Projects accept JSON CycloneDX 1.x and SPDX 2.x SBOMs up to 2 MiB. ChainProof validates and normalizes up to 5,000 components per document, stores package identifiers and license metadata, fingerprints the original bytes with SHA-256, rejects duplicate uploads within a project, and emits an audit event. The raw SBOM is not retained. See [SBOM ingestion architecture](docs/architecture/SBOM-INGESTION.md). This is an initial synchronous ingestion slice; asynchronous processing, full dependency graph persistence, schema conformance, and vulnerability enrichment remain future work.
