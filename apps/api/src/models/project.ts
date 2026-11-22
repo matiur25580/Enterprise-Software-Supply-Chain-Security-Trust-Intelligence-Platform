@@ -1,4 +1,4 @@
-import { Schema, model, models, type Model } from "mongoose";
+import mongoose, { Schema, model, type Model } from "mongoose";
 
 const projectSchema = new Schema({
   projectId: { type: String, required: true, unique: true, immutable: true },
@@ -16,4 +16,4 @@ const projectSchema = new Schema({
 projectSchema.index({ organizationId: 1, slug: 1 }, { unique: true, name: "projects_org_slug_unique" });
 projectSchema.index({ organizationId: 1, status: 1, updatedAt: -1 }, { name: "projects_org_status_updated" });
 
-export const Project: Model<any> = (models.Project as Model<any> | undefined) ?? model("Project", projectSchema);
+export const Project: Model<any> = (mongoose.models.Project as Model<any> | undefined) ?? model("Project", projectSchema);
