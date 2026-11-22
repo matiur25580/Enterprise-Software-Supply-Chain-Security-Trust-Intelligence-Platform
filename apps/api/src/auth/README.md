@@ -14,7 +14,7 @@ Application identifiers are UUIDs; MongoDB's internal ObjectIds are not accepted
 
 ## Database requirements
 
-Set `MONGODB_URI` to a private MongoDB deployment. Organization registration uses a MongoDB transaction so user, organization, owner membership, initial session, and audit event commit or roll back together. The MongoDB deployment must therefore be a replica set (a single-node replica set is sufficient for local development). Production index creation should be managed as a deployment migration; automatic index creation is disabled in production.
+Set `MONGODB_URI` to a private MongoDB deployment. Organization registration uses a MongoDB transaction so user, organization, owner membership, initial session, and audit event commit or roll back together. The MongoDB deployment must therefore be a replica set (a single-node replica set is sufficient for local development). Automatic index creation is disabled in production. Run `pnpm --filter @chainproof/api db:indexes` as a controlled deployment migration after connecting the target database.
 
 Example local URI: `mongodb://127.0.0.1:27017/chainproof?replicaSet=rs0`.
 
