@@ -1,3 +1,4 @@
+import {boundedSbomCandidatePaths} from "./github-sbom-discovery.js";
 import {createSign} from "node:crypto";
 import {env} from "../config/env.js";
 import {z} from "zod";
@@ -118,10 +119,9 @@ export async function getGitHubRepositorySbomFiles(input:{installationId:number;
  const tree=await githubRequest<{truncated:boolean;tree:Array<{path:string;mode:string;type:string;sha:string;size?:number}>}>(`/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repository)}/git/trees/${encodeURIComponent(input.commitSha)}?recursive=1`,token);
  const parsed=z.object({truncated:z.boolean(),tree:z.array(z.object({path:z.string().max(1024),mode:z.string(),type:z.string(),sha:z.string().regex(/^[a-f0-9]{40}$/i),size:z.number().int().nonnegative().optional()}))}).safeParse(tree);
  if(!parsed.success)throw new GitHubAppError(502,"GitHub returned an invalid repository tree.");
- if(parsed.data.truncated)throw new GitHubAppError(422,"The repository tree is truncated; narrow the repository or split the SBOM inventory before retrying.");
- if(parsed.data.tree.length>10000)throw new GitHubAppError(422,"The repository tree exceeds the supported 10,000-entry limit.");
- const candidates=parsed.data.tree.filter(item=>item.type==="blob"&&isGitHubSbomCandidatePath(item.path));
- if(candidates.length>MAX_SBOM_CANDIDATES)throw new GitHubAppError(422,`The repository contains more than ${MAX_SBOM_CANDIDATES} candidate SBOM files; remove ambiguous candidates and retry.`);
+ let candidatePaths:string[];
+ try{candidatePaths=boundedSbomCandidatePaths(parsed.data.tree,parsed.data.truncated);}catch(error){throw new GitHubAppError(422,error instanceof Error?error.message:"The repository tree exceeds discovery limits.");}
+ const candidates=parsed.data.tree.filter(item=>candidatePaths.includes(item.path));
  const files:GitHubSbomFile[]=[];let totalBytes=0;
  for(const candidate of candidates){
   if(candidate.size===undefined||candidate.size<=0||candidate.size>MAX_SBOM_FILE_BYTES)continue;
