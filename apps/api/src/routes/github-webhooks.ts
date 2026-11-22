@@ -2,6 +2,7 @@ import express, { Router, type Router as ExpressRouter } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { env } from "../config/env.js";
 import { GitHubWebhookDelivery } from "../models/github-webhook-delivery.js";
+import {applyGitHubInstallationWebhook} from "../integrations/github-installation-webhook.js";
 import {
   hashGitHubWebhookPayload,
   parseGitHubWebhookMetadata,
@@ -42,17 +43,28 @@ githubWebhooksRouter.post("/github",
       response.status(400).json({ error: { code: "INVALID_WEBHOOK_PAYLOAD", message: "The webhook payload is not valid JSON." } });
       return;
     }
+    let duplicate = false;
     try {
       await GitHubWebhookDelivery.create({
         deliveryId, ...metadata, payloadSha256: hashGitHubWebhookPayload(rawBody),
         processingStatus: "queued", receivedAt: new Date()
       });
-      response.status(202).json({ data: { accepted: true, duplicate: false, deliveryId } });
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && error.code === 11000) {
-        response.status(202).json({ data: { accepted: true, duplicate: true, deliveryId } });
-        return;
+        duplicate = true;
+      } else { next(error); return; }
+    }
+    try {
+      const delivery = await GitHubWebhookDelivery.findOne({deliveryId});
+      if (delivery && delivery.processingStatus !== "processed") {
+        await applyGitHubInstallationWebhook(metadata);
+        delivery.processingStatus = "processed";
+        delivery.processedAt = new Date();
+        await delivery.save();
       }
+      response.status(202).json({ data: { accepted: true, duplicate, deliveryId } });
+    } catch (error) {
+      await GitHubWebhookDelivery.updateOne({deliveryId,processingStatus:{$ne:"processed"}},{$set:{processingStatus:"failed"}});
       next(error);
     }
   }
