@@ -8,7 +8,7 @@ import {requirePermission} from "../middleware/authorize.js";
 import {GitHubInstallState,GitHubInstallation} from "../models/github-installation.js";
 import {Membership,Organization,User,AuditEvent} from "../models/identity.js";
 import {createGitHubInstallState,verifyGitHubInstallState} from "../integrations/github-install-state.js";
-import {GitHubAppError,listGitHubInstallationRepositories,verifyGitHubInstallation} from "../integrations/github-app-client.js";
+import {GitHubAppError,listGitHubInstallationRepositories,verifyGitHubInstallation,getGitHubRepositorySnapshot} from "../integrations/github-app-client.js";
 import {Project} from "../models/project.js";
 import {GitHubRepositoryLink} from "../models/github-repository-link.js";
 import {linkRepositorySchema,repositoryBelongsToInstallation} from "../integrations/github-repository-linking.js";
@@ -158,7 +158,49 @@ githubInstallationsRouter.post("/organizations/:organizationId/projects/:project
   }
  }
 );
-githubInstallationsRouter.delete("/organizations/:organizationId/projects/:projectId/repositories/:repositoryId",
+
+githubInstallationsRouter.post("/organizations/:organizationId/projects/:projectId/repositories/:repositoryId/sync",
+ authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
+ async(request:Request,response:Response,next:NextFunction)=>{
+  const projectId=typeof request.params.projectId==="string"?request.params.projectId:"";
+  const repositoryId=Number(request.params.repositoryId);
+  if(!projectId||!Number.isSafeInteger(repositoryId)||repositoryId<=0){response.status(400).json({error:{code:"INVALID_REPOSITORY_SYNC",message:"The project or repository identifier is invalid."}});return;}
+  const organizationId=request.auth!.orgId;
+  try{
+   const [project,link]=await Promise.all([
+    Project.findOne({organizationId,projectId,status:"active"}).select({projectId:1}).lean(),
+    GitHubRepositoryLink.findOne({organizationId,projectId,repositoryId,status:"active"})
+   ]);
+   if(!project||!link){response.status(404).json({error:{code:"REPOSITORY_LINK_NOT_FOUND",message:"The active project repository link was not found."}});return;}
+   const installation=await GitHubInstallation.findOne({organizationId,installationId:link.installationId,status:"active"});
+   if(!installation){response.status(409).json({error:{code:"INSTALLATION_NOT_ACTIVE",message:"The linked GitHub installation is not active."}});return;}
+   link.syncStatus="syncing";link.syncError=null;await link.save();
+   try{
+    const snapshot=await getGitHubRepositorySnapshot({installationId:link.installationId,owner:link.ownerLogin,repository:link.name});
+    if(snapshot.repository.id!==repositoryId||snapshot.repository.full_name.toLowerCase()!==link.fullName.toLowerCase()){
+     throw new GitHubAppError(502,"GitHub repository identity did not match the linked repository.");
+    }
+    const stillActive=await GitHubInstallation.exists({organizationId,installationId:link.installationId,status:"active"});
+    if(!stillActive)throw new GitHubAppError(409,"The GitHub installation became inactive during synchronization.");
+    link.name=snapshot.repository.name;link.fullName=snapshot.repository.full_name;link.htmlUrl=snapshot.repository.html_url;
+    link.defaultBranch=snapshot.repository.default_branch;link.isPrivate=snapshot.repository.private;
+    link.lastSyncedAt=new Date();link.lastSyncedCommitSha=snapshot.commit.sha;
+    const commitDate=snapshot.commit.commit.committer.date||snapshot.commit.commit.author.date;
+    link.lastSyncedCommitAt=commitDate?new Date(commitDate):null;
+    link.syncStatus="succeeded";link.syncError=null;await link.save();
+    await AuditEvent.create({eventId:randomUUID(),organizationId,actorUserId:request.auth!.sub,action:"integration.github_repository_synced",targetType:"github_repository",targetId:String(repositoryId),metadata:{projectId,installationId:link.installationId,commitSha:snapshot.commit.sha,defaultBranch:snapshot.repository.default_branch}});
+    response.status(200).json({data:{repositoryId,fullName:link.fullName,defaultBranch:link.defaultBranch,private:link.isPrivate,archived:snapshot.repository.archived,disabled:snapshot.repository.disabled,lastSyncedAt:link.lastSyncedAt,lastSyncedCommitSha:link.lastSyncedCommitSha,lastSyncedCommitAt:link.lastSyncedCommitAt,syncStatus:link.syncStatus}});
+   }catch(error){
+    link.syncStatus="failed";link.syncError=error instanceof Error?error.message.slice(0,300):"Repository synchronization failed.";await link.save();
+    throw error;
+   }
+  }catch(error){
+   if(error instanceof GitHubAppError){const status=error.status===503?503:error.status===403?403:error.status===404?404:error.status===409?409:502;response.status(status).json({error:{code:"GITHUB_REPOSITORY_SYNC_FAILED",message:error.message}});return;}
+   next(error);
+  }
+ }
+);
+\ngithubInstallationsRouter.delete("/organizations/:organizationId/projects/:projectId/repositories/:repositoryId",
  authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
  async(request:Request,response:Response,next:NextFunction)=>{
   const projectId=typeof request.params.projectId==="string"?request.params.projectId:"";
