@@ -42,14 +42,17 @@ export interface VerifiedGitHubInstallation {
  id:number;app_id:number;account:{id:number;login:string;type:"Organization"|"User"};
  repository_selection:"selected"|"all";permissions:Record<string,string>;target_id:number;
 }
-export async function verifyGitHubInstallation(installationId:number):Promise<VerifiedGitHubInstallation>{
- const result=await githubRequest<VerifiedGitHubInstallation>(`/app/installations/${installationId}`,appJwt());
+export function validateGitHubInstallation(installationId:number,result:VerifiedGitHubInstallation,expectedAppId:string):VerifiedGitHubInstallation {
  if(result.id!==installationId)throw new GitHubAppError(502,"GitHub returned a mismatched installation.");
- if(result.app_id!==Number(env.GITHUB_APP_ID))throw new GitHubAppError(403,"The installation belongs to a different GitHub App.");
+ if(result.app_id!==Number(expectedAppId))throw new GitHubAppError(403,"The installation belongs to a different GitHub App.");
  if(!result.account||!Number.isSafeInteger(result.account.id)||!result.account.login||!["Organization","User"].includes(result.account.type))throw new GitHubAppError(502,"GitHub returned invalid installation account data.");
  if(result.repository_selection!=="selected")throw new GitHubAppError(403,"ChainProof requires explicitly selected repositories; reinstall the App with selected repository access.");
  if(result.permissions?.contents!=="read"||result.permissions?.metadata!=="read"||Object.entries(result.permissions).some(([name,permission])=>!["contents","metadata"].includes(name)||permission!=="read"))throw new GitHubAppError(403,"The GitHub App must have only read-only contents and metadata permissions.");
  return result;
+}
+export async function verifyGitHubInstallation(installationId:number):Promise<VerifiedGitHubInstallation>{
+ const result=await githubRequest<VerifiedGitHubInstallation>(`/app/installations/${installationId}`,appJwt());
+ return validateGitHubInstallation(installationId,result,env.GITHUB_APP_ID!);
 }
 async function createInstallationToken(installationId:number):Promise<string>{
  const token=await githubRequest<{token:string;expires_at:string}>(`/app/installations/${installationId}/access_tokens`,appJwt(),{method:"POST",body:JSON.stringify({permissions:{contents:"read",metadata:"read"}})});
