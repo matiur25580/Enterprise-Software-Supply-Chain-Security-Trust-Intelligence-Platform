@@ -37,7 +37,7 @@ function cvssV3Score(vector:string):number|null{
  const av:Record<string,number>={N:0.85,A:0.62,L:0.55,P:0.2},ac:Record<string,number>={L:0.77,H:0.44},ui:Record<string,number>={N:0.85,R:0.62};
  const impactMetric:Record<string,number>={H:0.56,L:0.22,N:0};
  const scope=metrics.S;
- if(!av[metrics.AV??""]||!ac[metrics.AC??""]||!ui[metrics.UI??""]||!impactMetric[metrics.C??""]&&metrics.C!=="H"||!impactMetric[metrics.I??""]&&metrics.I!=="H"||!impactMetric[metrics.A??""]&&metrics.A!=="H"||(scope!=="U"&&scope!=="C"))return null;
+ if(!Object.prototype.hasOwnProperty.call(av,metrics.AV)||!Object.prototype.hasOwnProperty.call(ac,metrics.AC)||!Object.prototype.hasOwnProperty.call(ui,metrics.UI)||!Object.prototype.hasOwnProperty.call(impactMetric,metrics.C)||!Object.prototype.hasOwnProperty.call(impactMetric,metrics.I)||!Object.prototype.hasOwnProperty.call(impactMetric,metrics.A)||(scope!=="U"&&scope!=="C"))return null;
  const prValues=scope==="C"?{N:0.85,L:0.68,H:0.5}:{N:0.85,L:0.62,H:0.27};
  const pr=prValues[metrics.PR as "N"|"L"|"H"];if(pr===undefined)return null;
  const impactSub=1-(1-impactMetric[metrics.C!]!)*(1-impactMetric[metrics.I!]!)*(1-impactMetric[metrics.A!]!);
