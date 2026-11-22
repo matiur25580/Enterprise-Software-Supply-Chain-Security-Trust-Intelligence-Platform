@@ -18,6 +18,7 @@ export async function verifyPassword(password: string, encoded: string): Promise
   if (algorithm !== "scrypt" || !n || !r || !p || !saltText || !hashText || extra !== undefined) return false;
   const salt = Buffer.from(saltText, "base64url");
   const expected = Buffer.from(hashText, "base64url");
+  if (Number(n) !== PARAMETERS.N || Number(r) !== PARAMETERS.r || Number(p) !== PARAMETERS.p) return false;
   if (salt.length !== SALT_LENGTH || expected.length !== KEY_LENGTH) return false;
   try {
     const actual = (await scrypt(password, salt, KEY_LENGTH, { N: Number(n), r: Number(r), p: Number(p) })) as Buffer;
