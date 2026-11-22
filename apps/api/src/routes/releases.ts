@@ -88,7 +88,6 @@ releasesRouter.post(base,
             releaseId, organizationId, projectId, sbomId: parsed.data.sbomId,
             version: parsed.data.version, artifactSha256: parsed.data.artifactSha256,
             provenance: { ...parsed.data.provenance, attestationDigest: attestationVerification.envelopeSha256 },
-            provenanceVerification: attestationVerification.status,
             attestationVerification: {
               keyId: attestationVerification.keyId,
               envelopeSha256: attestationVerification.envelopeSha256,
