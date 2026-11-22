@@ -1,15 +1,22 @@
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
-import { promisify } from "node:util";
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual, type ScryptOptions } from "node:crypto";
 
-const scrypt = promisify(scryptCallback);
 const KEY_LENGTH = 64;
 const SALT_LENGTH = 16;
 const PARAMETERS = { N: 16384, r: 8, p: 1 } as const;
 
+function deriveKey(password: string, salt: Buffer, keyLength: number, options: ScryptOptions): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scryptCallback(password, salt, keyLength, options, (error, derivedKey) => {
+      if (error) reject(error);
+      else resolve(derivedKey);
+    });
+  });
+}
+
 export async function hashPassword(password: string): Promise<string> {
   if (password.length < 12 || password.length > 128) throw new Error("Password must be between 12 and 128 characters.");
   const salt = randomBytes(SALT_LENGTH);
-  const derived = (await scrypt(password, salt, KEY_LENGTH, PARAMETERS)) as Buffer;
+  const derived = await deriveKey(password, salt, KEY_LENGTH, PARAMETERS);
   return ["scrypt", PARAMETERS.N, PARAMETERS.r, PARAMETERS.p, salt.toString("base64url"), derived.toString("base64url")].join("$");
 }
 
@@ -21,7 +28,7 @@ export async function verifyPassword(password: string, encoded: string): Promise
   if (Number(n) !== PARAMETERS.N || Number(r) !== PARAMETERS.r || Number(p) !== PARAMETERS.p) return false;
   if (salt.length !== SALT_LENGTH || expected.length !== KEY_LENGTH) return false;
   try {
-    const actual = (await scrypt(password, salt, KEY_LENGTH, { N: Number(n), r: Number(r), p: Number(p) })) as Buffer;
+    const actual = await deriveKey(password, salt, KEY_LENGTH, PARAMETERS);
     return timingSafeEqual(actual, expected);
   } catch { return false; }
 }
