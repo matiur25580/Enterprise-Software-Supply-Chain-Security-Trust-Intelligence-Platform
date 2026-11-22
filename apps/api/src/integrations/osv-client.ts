@@ -1,7 +1,7 @@
 import {z} from "zod";
 import type {NormalizedSbomComponent} from "./sbom-parser.js";
 const OSV_BASE="https://api.osv.dev";
-const MAX_PACKAGES=500,MAX_VULNERABILITIES=2000,MAX_PAGES=10,BATCH_SIZE=100,DETAIL_CONCURRENCY=6;
+const MAX_PACKAGES=500,MAX_VULNERABILITIES=2000,MAX_FINDINGS=5000,MAX_PAGES=10,BATCH_SIZE=100,DETAIL_CONCURRENCY=6;
 const osvStubSchema=z.object({id:z.string().min(1).max(128),modified:z.string().optional()});
 const batchResponseSchema=z.object({results:z.array(z.object({vulns:z.array(osvStubSchema).optional(),next_page_token:z.string().optional()}).passthrough())});
 const referenceSchema=z.object({type:z.string().optional(),url:z.string().url().optional()}).passthrough();
@@ -112,10 +112,10 @@ export async function scanComponentsWithOsv(components:NormalizedSbomComponent[]
  if(packages.length>MAX_PACKAGES)throw new Error(`SBOM has more than ${MAX_PACKAGES} scannable unique packages; split the inventory before scanning.`);
  const idsByPackage=new Map<string,Set<string>>();
  for(let offset=0;offset<packages.length;offset+=BATCH_SIZE){const page=await queryBatch(packages.slice(offset,offset+BATCH_SIZE));for(const [purl,ids] of page)idsByPackage.set(purl,ids);}
- const allIds=[...new Set([...idsByPackage.values()].flatMap(ids=>[...ids]))];
+ let findingPairs=0;for(const ids of idsByPackage.values())findingPairs+=ids.size;\n if(findingPairs>MAX_FINDINGS)throw new Error("OSV returned more package-advisory matches than the scan safety limit.");\n const allIds=[...new Set([...idsByPackage.values()].flatMap(ids=>[...ids]))];
  if(allIds.length>MAX_VULNERABILITIES)throw new Error("OSV returned more findings than the scan safety limit.");
  const details=await fetchDetails(allIds),findings:OsvFinding[]=[];
  for(const [purl,ids] of idsByPackage)for(const id of ids){const detail=details.get(id);if(detail)findings.push(normalizeVulnerability(detail,purl));}
  return {findings,scannedPackages:packages.length,skippedPackages:components.length-packages.length,vulnerabilityCount:findings.length};
 }
-export const osvLimits={maxPackages:MAX_PACKAGES,maxVulnerabilities:MAX_VULNERABILITIES,detailConcurrency:DETAIL_CONCURRENCY};
+export const osvLimits={maxPackages:MAX_PACKAGES,maxVulnerabilities:MAX_VULNERABILITIES,maxFindings:MAX_FINDINGS,detailConcurrency:DETAIL_CONCURRENCY};
