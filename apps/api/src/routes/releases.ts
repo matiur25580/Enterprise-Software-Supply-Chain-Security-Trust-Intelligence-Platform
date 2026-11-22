@@ -11,6 +11,8 @@ import { VulnerabilityFinding } from "../models/vulnerability-finding.js";
 import { SoftwareRelease } from "../models/software-release.js";
 import { AuditEvent } from "../models/identity.js";
 import { assessReleaseTrust } from "../integrations/release-trust.js";
+import { parseTrustedAttestationKeys, verifyReleaseAttestation, DSSE_PAYLOAD_TYPE } from "../integrations/release-attestation.js";
+import { env } from "../config/env.js";
 
 export const releasesRouter: ExpressRouter = Router();
 const base = "/organizations/:organizationId/projects/:projectId/releases";
@@ -63,7 +65,14 @@ releasesRouter.post(base,
       for (const item of findings) {
         if (item._id in counts) counts[item._id as keyof typeof counts] = item.count;
       }
-      const assessment = assessReleaseTrust(parsed.data.provenance, counts);
+      const attestationVerification = verifyReleaseAttestation(parsed.data.attestation, {
+        artifactSha256: parsed.data.artifactSha256,
+        sourceRepository: parsed.data.provenance.sourceRepository,
+        sourceCommitSha: parsed.data.provenance.sourceCommitSha,
+        builderIdentity: parsed.data.provenance.builderIdentity,
+        buildRunUrl: parsed.data.provenance.buildRunUrl
+      }, parseTrustedAttestationKeys(env.CHAINPROOF_ATTESTATION_TRUSTED_KEYS));
+      const assessment = assessReleaseTrust(parsed.data.provenance, counts, attestationVerification.status);
       const releaseId = randomUUID();
       // Persist the release and its audit event atomically. A failed audit write
       // must never leave an un-audited release record behind.
@@ -80,7 +89,7 @@ releasesRouter.post(base,
           await AuditEvent.create([{
             eventId: randomUUID(), organizationId, actorUserId: request.auth!.sub,
             action: "release.assessed", targetType: "software_release", targetId: releaseId,
-            metadata: { projectId, sbomId: parsed.data.sbomId, version: parsed.data.version, artifactSha256: parsed.data.artifactSha256, trustScore: assessment.trustScore, policyStatus: assessment.policyStatus, vulnerabilitySummary: assessment.vulnerabilitySummary }
+            metadata: { projectId, sbomId: parsed.data.sbomId, version: parsed.data.version, artifactSha256: parsed.data.artifactSha256, trustScore: assessment.trustScore, policyStatus: assessment.policyStatus, provenanceVerification: attestationVerification.status, attestationKeyId: attestationVerification.keyId, attestationEnvelopeSha256: attestationVerification.envelopeSha256, vulnerabilitySummary: assessment.vulnerabilitySummary }
           }], { session });
           release = createdRelease;
         });
