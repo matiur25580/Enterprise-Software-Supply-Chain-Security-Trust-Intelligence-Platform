@@ -107,3 +107,7 @@ Milestone 5 now includes an owner/admin-authorized GitHub App installation start
 ## GitHub App verification and repository discovery
 
 ChainProof can verify a pending GitHub App installation against GitHub's App API using a short-lived RS256 App JWT, require selected-repository mode and read-only Contents/Metadata permissions, then discover installed repositories with an ephemeral installation token. Set `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY` through a deployment secret manager; never commit credentials. See [GitHub App installation architecture](docs/architecture/GITHUB-APP-INSTALLATION.md). Repository-to-project linking and source ingestion are not yet implemented.
+
+### GitHub repository linking
+
+Verified GitHub App installations can discover repositories and link selected repository IDs to tenant-owned projects. ChainProof validates every selection against GitHub's current installation inventory and stores provider metadata only. Signed installation suspend/delete webhooks update linked repository status. Source ingestion and SBOM analysis are subsequent milestones. See [GitHub App installation and repository linking](docs/architecture/GITHUB-APP-INSTALLATION.md).
