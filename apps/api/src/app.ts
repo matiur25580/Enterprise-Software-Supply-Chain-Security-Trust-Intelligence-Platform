@@ -4,6 +4,7 @@ import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
+import { accessRouter } from "./routes/access.js";
 
 export const app: Express = express();
 app.disable("x-powered-by");
@@ -15,6 +16,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "1mb", strict: true }));
 app.use(pinoHttp({ logger }));
+
+app.use("/api/v1", accessRouter);
 
 app.get("/api/v1/health", (_request, response) => {
   response.status(200).json({
