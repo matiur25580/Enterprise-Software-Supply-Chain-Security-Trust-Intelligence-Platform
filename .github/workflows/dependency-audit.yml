@@ -1,0 +1,33 @@
+name: Dependency security audit
+
+on:
+  push:
+    branches: [main, "feat/**"]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-audit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prepare package manager
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+      - name: Resolve dependency graph for audit
+        run: pnpm install --lockfile-only --ignore-scripts --no-frozen-lockfile
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
