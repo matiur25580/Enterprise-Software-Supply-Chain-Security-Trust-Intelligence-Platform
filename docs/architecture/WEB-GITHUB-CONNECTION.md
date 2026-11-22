@@ -35,3 +35,12 @@ The Projects workspace exposes the tenant-scoped GitHub App installation and rep
 ## Operational note
 
 The callback currently returns a JSON confirmation response. After completing GitHub's installation flow, the administrator returns to the Projects workspace and refreshes the installation inventory. This is intentional for this implementation slice; a polished product redirect/deep-link flow can be added separately.
+
+
+## Repository metadata synchronization
+
+The Projects workspace offers **Sync now** for an active linked repository. The API mints an ephemeral read-only installation token, fetches the repository metadata and default-branch commit from GitHub, validates the provider repository ID and full name against the stored link, and persists the last synchronization time, commit SHA, commit timestamp, default branch, visibility, and sync status. It rechecks installation activity before committing the snapshot and writes an audit event. Failures are recorded as a bounded error string and a failed sync status.
+
+Endpoint: `POST /api/v1/integrations/github/organizations/:organizationId/projects/:projectId/repositories/:repositoryId/sync` (requires `integrations:manage`).
+
+This is a bounded on-demand metadata synchronization, not yet a background job. It does not fetch repository file contents, discover or ingest committed SBOM files, enqueue vulnerability scans, or process push webhooks asynchronously. Those are separate follow-on capabilities; no source code is cloned or executed by this endpoint.
