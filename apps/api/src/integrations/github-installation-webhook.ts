@@ -8,6 +8,7 @@ export async function applyGitHubInstallationWebhook(input:{eventName:string;act
  if(!installation)return "ignored";
  const nextStatus=input.action==="suspend"?"suspended":input.action==="deleted"?"removed":"active";
  const previousStatus=installation.status;
+ if(input.action==="unsuspend"&&!installation.verifiedAt)return "ignored";
  if(previousStatus==="removed"&&nextStatus!=="removed")return "ignored";
  const updated=await GitHubInstallation.findOneAndUpdate(
   {installationId:input.installationId,status:previousStatus},
