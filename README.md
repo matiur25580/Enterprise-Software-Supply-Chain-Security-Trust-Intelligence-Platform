@@ -133,3 +133,8 @@ ChainProof can scan an ingested project SBOM against OSV.dev using versioned pac
 ## Web SBOM and vulnerability workspace
 
 The Components and Vulnerabilities screens now authenticate against the ChainProof API, list active projects and SBOM inventories, upload CycloneDX/SPDX JSON, trigger OSV scans, and display live project-scoped findings with severity, CVSS score, fixed versions, and remediation guidance. Configure `VITE_API_BASE_URL` for the API origin (defaults to `http://localhost:4000`). The web client keeps access/refresh tokens in memory only; access-token refresh is not yet automatic. See [Web SBOM workspace](docs/architecture/WEB-SBOM-WORKSPACE.md).
+
+
+### GitHub App connection workspace
+
+The Projects workspace can start GitHub App installation, refresh and verify pending installations, discover repositories from an active installation, and link a selected provider repository to an active project. The API exposes tenant-scoped installation metadata; repository metadata is sourced from GitHub, not browser input. See [WEB-GITHUB-CONNECTION.md](docs/architecture/WEB-GITHUB-CONNECTION.md).
