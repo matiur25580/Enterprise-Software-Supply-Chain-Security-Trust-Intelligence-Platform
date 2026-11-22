@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import mongoose from "mongoose";
 import { Router, type Router as ExpressRouter } from "express";
 import { z } from "zod";
 import { authenticate } from "../middleware/authenticate.js";
@@ -64,17 +65,29 @@ releasesRouter.post(base,
       }
       const assessment = assessReleaseTrust(parsed.data.provenance, counts);
       const releaseId = randomUUID();
-      const release = await SoftwareRelease.create({
-        releaseId, organizationId, projectId, sbomId: parsed.data.sbomId,
-        version: parsed.data.version, artifactSha256: parsed.data.artifactSha256,
-        provenance: parsed.data.provenance, provenanceVerification: "not_verified",
-        ...assessment, createdByUserId: request.auth!.sub
-      });
-      await AuditEvent.create({
-        eventId: randomUUID(), organizationId, actorUserId: request.auth!.sub,
-        action: "release.assessed", targetType: "software_release", targetId: releaseId,
-        metadata: { projectId, sbomId: parsed.data.sbomId, version: parsed.data.version, artifactSha256: parsed.data.artifactSha256, trustScore: assessment.trustScore, policyStatus: assessment.policyStatus, vulnerabilitySummary: assessment.vulnerabilitySummary }
-      });
+      // Persist the release and its audit event atomically. A failed audit write
+      // must never leave an un-audited release record behind.
+      const session = await mongoose.startSession();
+      let release: InstanceType<typeof SoftwareRelease> | undefined;
+      try {
+        await session.withTransaction(async () => {
+          const [createdRelease] = await SoftwareRelease.create([{
+            releaseId, organizationId, projectId, sbomId: parsed.data.sbomId,
+            version: parsed.data.version, artifactSha256: parsed.data.artifactSha256,
+            provenance: parsed.data.provenance, provenanceVerification: "not_verified",
+            ...assessment, createdByUserId: request.auth!.sub
+          }], { session });
+          await AuditEvent.create([{
+            eventId: randomUUID(), organizationId, actorUserId: request.auth!.sub,
+            action: "release.assessed", targetType: "software_release", targetId: releaseId,
+            metadata: { projectId, sbomId: parsed.data.sbomId, version: parsed.data.version, artifactSha256: parsed.data.artifactSha256, trustScore: assessment.trustScore, policyStatus: assessment.policyStatus, vulnerabilitySummary: assessment.vulnerabilitySummary }
+          }], { session });
+          release = createdRelease;
+        });
+      } finally {
+        await session.endSession();
+      }
+      if (!release) throw new Error("Release transaction completed without returning a release.");
       response.status(201).json({ data: release.toJSON() });
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && error.code === 11000) {
