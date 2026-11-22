@@ -25,17 +25,16 @@ vulnerabilitiesRouter.post(`${base}/sboms/:sbomId/scan`,authenticate,requireOrga
   if(!sbom){response.status(404).json({error:{code:"SBOM_NOT_FOUND",message:"The SBOM was not found."}});return;}
   const result=await scanComponentsWithOsv(sbom.components);
   const scannedAt=new Date();
-  const componentByPurl=new Map<string,(typeof sbom.components)[number]>();
-  for(const component of sbom.components){const purl=versionedPurl(component);if(purl&&!componentByPurl.has(purl))componentByPurl.set(purl,component);}
+  const componentsByPurl=new Map<string,Array<(typeof sbom.components)[number]>>();
+  for(const component of sbom.components){const purl=versionedPurl(component);if(purl){const items=componentsByPurl.get(purl)??[];items.push(component);componentsByPurl.set(purl,items);}}
   const accepted=await VulnerabilityFinding.find({organizationId,projectId,sbomId,status:"accepted_risk"}).select({componentKey:1,vulnerabilityId:1}).lean();
   const acceptedKeys=new Set(accepted.map(item=>`${item.componentKey}:${item.vulnerabilityId}`));
   await VulnerabilityFinding.updateMany({organizationId,projectId,sbomId,status:"open"},{$set:{status:"resolved"}});
-  const operations=result.findings.flatMap(finding=>{
-   const component=componentByPurl.get(finding.packageUrl);if(!component)return [];
+  const operations=result.findings.flatMap(finding=>(componentsByPurl.get(finding.packageUrl)??[]).map(component=>{
    const key=componentKey(component),isAccepted=acceptedKeys.has(`${key}:${finding.vulnerabilityId}`);
    const values={componentKey:key,componentName:component.name,componentVersion:component.version,purl:finding.packageUrl,vulnerabilityId:finding.vulnerabilityId,summary:finding.summary,details:finding.details,aliases:finding.aliases,severity:finding.severity,cvssScore:finding.cvssScore,affectedVersions:finding.affectedVersions,fixedVersions:finding.fixedVersions,references:finding.references,recommendedAction:finding.recommendedAction,source:"OSV",lastScannedAt:scannedAt};
-   return [{updateOne:{filter:{organizationId,projectId,sbomId,componentKey:key,vulnerabilityId:finding.vulnerabilityId},update:{$set:{...values,...(isAccepted?{}:{status:"open"})},$setOnInsert:{findingId:randomUUID(),organizationId,projectId,sbomId,...(isAccepted?{status:"open"}:{})}},upsert:true}}];
-  });
+   return {updateOne:{filter:{organizationId,projectId,sbomId,componentKey:key,vulnerabilityId:finding.vulnerabilityId},update:{$set:{...values,...(isAccepted?{}:{status:"open"})},$setOnInsert:{findingId:randomUUID(),organizationId,projectId,sbomId,...(isAccepted?{status:"open"}:{})}},upsert:true}};
+  })));
   if(operations.length)await VulnerabilityFinding.bulkWrite(operations,{ordered:false});
   await AuditEvent.create({eventId:randomUUID(),organizationId,actorUserId:request.auth!.sub,action:"vulnerability.scan_completed",targetType:"sbom",targetId:sbomId,metadata:{projectId,scannedPackages:result.scannedPackages,skippedPackages:result.skippedPackages,vulnerabilityCount:result.vulnerabilityCount,scannedAt}});
   const counts=await VulnerabilityFinding.aggregate([{ $match:{organizationId,projectId,sbomId,status:"open"}},{ $group:{_id:"$severity",count:{$sum:1}}}]);
