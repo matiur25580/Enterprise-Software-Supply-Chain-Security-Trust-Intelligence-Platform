@@ -34,7 +34,7 @@ jobs:
           node-version: 22
           package-manager-cache: false
       - name: Install
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
       - name: Start MongoDB replica set
         run: |
           docker run -d --name chainproof-mongo -p 27017:27017 mongo:8.0 mongod --replSet rs0 --bind_ip_all
