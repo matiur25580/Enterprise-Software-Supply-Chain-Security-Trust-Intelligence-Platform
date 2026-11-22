@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, FileUp, KeyRound, LoaderCircle, LogOut, Refr
 type Project = { projectId: string; name: string; slug: string; status: string };
 type Sbom = { sbomId: string; format: string; specVersion: string; documentName: string; documentSha256: string; componentCount: number; createdAt: string };
 type Finding = { findingId: string; sbomId: string; componentName: string; componentVersion: string | null; vulnerabilityId: string; summary: string; severity: string; cvssScore: number | null; fixedVersions: string[]; recommendedAction: string; status: string };
-type Session = { accessToken: string; refreshToken: string; organization: { id: string; name: string; slug: string }; user: { displayName: string; email: string } };
+type Session = { accessToken: string; refreshToken: string; expiresIn: number; organization: { id: string; name: string; slug: string }; user: { displayName: string; email: string } };
 type Props = { page: string; hidden?: boolean };
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:4000";
@@ -24,6 +24,9 @@ async function request<T>(path: string, token: string, init: RequestInit = {}): 
 
 export function SecurityCenter({ page, hidden = false }: Props) {
   const [session, setSession] = useState<Session | null>(null);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [displayName, setDisplayName] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [organizationSlug, setOrganizationSlug] = useState("");
@@ -59,6 +62,25 @@ export function SecurityCenter({ page, hidden = false }: Props) {
 
   useEffect(() => {
     if (!session) return;
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: session.refreshToken })
+        });
+        const payload = await response.json() as { data?: { accessToken: string; refreshToken: string; expiresIn: number } };
+        if (!response.ok || !payload.data) throw new Error("Your session expired. Please sign in again.");
+        setSession((current) => current ? { ...current, ...payload.data } : current);
+      } catch (cause) {
+        setSession(null); setProjects([]); setSboms([]); setFindings([]);
+        setError(cause instanceof Error ? cause.message : "Session refresh failed. Please sign in again.");
+      }
+    }, Math.max(60, session.expiresIn - 180) * 1000);
+    return () => window.clearTimeout(timeout);
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
     let cancelled = false;
     setLoading(true); setError("");
     loadProjects(session).catch((cause: unknown) => { if (!cancelled) setError(cause instanceof Error ? cause.message : "Could not load projects."); })
@@ -75,14 +97,20 @@ export function SecurityCenter({ page, hidden = false }: Props) {
     return () => { cancelled = true; };
   }, [session, projectId, loadProjectData]);
 
-  async function signIn(event: FormEvent<HTMLFormElement>) {
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setLoading(true); setError(""); setNotice("");
     try {
-      const response = await fetch(`${API_BASE}/api/v1/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, organizationSlug }) });
+      const isRegister = authMode === "register";
+      const endpoint = isRegister ? "register" : "login";
+      const body = isRegister ? { email, password, displayName, organizationName, organizationSlug } : { email, password, organizationSlug };
+      const response = await fetch(`${API_BASE}/api/v1/auth/${endpoint}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+      });
       const payload = await response.json() as { data?: Session; error?: { message?: string } };
-      if (!response.ok || !payload.data) throw new Error(payload.error?.message || "Sign-in failed.");
-      setSession(payload.data); setPassword(""); setNotice(`Connected to ${payload.data.organization.name}.`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not sign in."); }
+      if (!response.ok || !payload.data) throw new Error(payload.error?.message || (isRegister ? "Registration failed." : "Sign-in failed."));
+      setSession(payload.data); setPassword("");
+      setNotice(isRegister ? `Organization ${payload.data.organization.name} created.` : `Connected to ${payload.data.organization.name}.`);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Authentication failed."); }
     finally { setLoading(false); }
   }
 
@@ -135,14 +163,20 @@ export function SecurityCenter({ page, hidden = false }: Props) {
   if (hidden) return null;
   if (!session) return (
     <main className="security-workspace">
-      <div className="security-heading"><div><span className="eyebrow-light">CHAINPROOF · CONNECTED SECURITY WORKSPACE</span><h1>Connect your organization</h1><p>Sign in to ingest SBOMs and scan project dependencies against OSV.dev.</p></div></div>
-      <form className="auth-card" onSubmit={signIn}>
-        <div className="auth-card-icon"><KeyRound size={20} /></div><h2>Organization sign in</h2><p>Use the account and organization slug created during ChainProof registration.</p>
+      <div className="security-heading"><div><span className="eyebrow-light">CHAINPROOF · CONNECTED SECURITY WORKSPACE</span><h1>{authMode === "register" ? "Create your organization" : "Connect your organization"}</h1><p>Securely manage project SBOMs and scan dependencies against OSV.dev.</p></div></div>
+      <form className="auth-card" onSubmit={submitAuth}>
+        <div className="auth-card-icon"><KeyRound size={20} /></div><h2>{authMode === "register" ? "Start a ChainProof workspace" : "Organization sign in"}</h2>
+        <p>{authMode === "register" ? "Create an owner account and organization. Registration requires MongoDB transactions." : "Use your ChainProof account credentials and organization slug."}</p>
+        {authMode === "register" && <>
+          <label>Your name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoComplete="name" minLength={2} maxLength={100} required /></label>
+          <label>Organization name<input value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} minLength={2} maxLength={120} required /></label>
+        </>}
         <label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required /></label>
-        <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
-        <label>Organization slug<input value={organizationSlug} onChange={(event) => setOrganizationSlug(event.target.value)} placeholder="your-organization" required /></label>
-        <button className="primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={15} /> : <ShieldCheck size={15} />} Sign in securely</button>
-        <small>Access credentials and tokens stay in this tab's memory; this page does not persist tokens in browser storage.</small>
+        <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={authMode === "register" ? "new-password" : "current-password"} minLength={authMode === "register" ? 12 : 1} maxLength={128} required /></label>
+        <label>Organization slug<input value={organizationSlug} onChange={(event) => setOrganizationSlug(event.target.value)} placeholder="your-organization" pattern="[a-z0-9]+(-[a-z0-9]+)*" minLength={3} maxLength={63} required /></label>
+        <button className="primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={15} /> : <ShieldCheck size={15} />} {authMode === "register" ? "Create secure workspace" : "Sign in securely"}</button>
+        <button className="auth-mode-toggle" type="button" onClick={() => { setAuthMode((mode) => mode === "login" ? "register" : "login"); setError(""); }}>{authMode === "register" ? "Already have an account? Sign in" : "New to ChainProof? Create an organization"}</button>
+        <small>Session tokens remain in this tab's memory and are rotated automatically. They are not persisted in browser storage.</small>
       </form>
       <p className="api-hint">API endpoint: {API_BASE} · Configure VITE_API_BASE_URL for your deployment.</p>
       {error && <div className="security-alert error"><AlertCircle size={15} />{error}</div>}
