@@ -60,7 +60,7 @@ test("persisted identity enforces tenant isolation, membership RBAC, and refresh
     authenticate, requireOrganizationScope, requirePermission("members:manage"),
     (_request, response) => response.status(200).json({ ok: true })
   );
-  const server: Server = await new Promise((resolve) => {
+  const server = await new Promise<Server>((resolve) => {
     const listening = app.listen(0, "127.0.0.1", () => resolve(listening));
   });
   const address = server.address();
