@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import mongoose from "mongoose";
+import mongoose, { type ClientSession } from "mongoose";
 import { hashPassword, verifyPassword } from "./password.js";
 import { issueSession } from "./session.js";
 import { classifyRefreshToken, createRefreshToken, hashRefreshToken } from "./refresh-token.js";
@@ -22,7 +22,7 @@ function issueAccessToken(userId: string, organizationId: string, sessionId: str
   return issueSession({ userId, organizationId, sessionId, roles: [role], secret: env.AUTH_SESSION_SECRET, ttlSeconds: ACCESS_TTL_SECONDS });
 }
 
-async function persistAudit(input: { organizationId: string; actorUserId: string; action: string; targetType: string; targetId?: string | null; metadata?: Record<string, unknown> }, session?: mongoose.ClientSession): Promise<void> {
+async function persistAudit(input: { organizationId: string; actorUserId: string; action: string; targetType: string; targetId?: string | null; metadata?: Record<string, unknown> }, session?: ClientSession): Promise<void> {
   await AuditEvent.create([{
     eventId: randomUUID(),
     organizationId: input.organizationId,
