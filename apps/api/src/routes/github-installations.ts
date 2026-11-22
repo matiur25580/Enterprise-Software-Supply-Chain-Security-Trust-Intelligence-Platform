@@ -53,6 +53,16 @@ githubInstallationsRouter.get("/callback",
   }
  }
 );
+githubInstallationsRouter.get("/organizations/:organizationId/installations",
+ authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
+ async(request:Request,response:Response,next:NextFunction)=>{
+  try{
+   const installations=await GitHubInstallation.find({organizationId:request.auth!.orgId}).select("installationId accountLogin accountType repositorySelection status verifiedAt createdAt updatedAt").sort({createdAt:-1}).lean();
+   response.status(200).json({data:installations});
+  }catch(error){next(error);}
+ }
+);
+
 githubInstallationsRouter.post("/organizations/:organizationId/installations/:installationId/verify",
  authenticate,requireOrganizationScope,requirePermission("integrations:manage"),
  async(request:Request,response:Response,next:NextFunction)=>{
