@@ -2,142 +2,167 @@
 
 **Enterprise Software Supply Chain Security & Trust Intelligence Platform**
 
-ChainProof helps engineering and security teams understand, verify, govern, and continuously improve the integrity of the software they ship. It brings software inventory, vulnerability intelligence, build provenance, policy decisions, and release evidence into one auditable workflow.
+> Make software releases explainable and verifiable through SBOM, vulnerability and provenance evidence.
 
-> **Project status:** Early implementation · Enterprise foundation, security command center, persistent identity, tenant-scoped project registry, GitHub App repository linking, bounded SBOM ingestion, and initial OSV vulnerability intelligence are implemented in draft milestone branches. Dashboard metrics remain illustrative sample data.
+## 1. Product overview
 
-## Product vision
+ChainProof helps engineering and security teams understand, verify, govern and improve the integrity of the software they ship. It connects software inventory, vulnerability intelligence, build provenance, policy decisions and release evidence in an auditable workflow.
 
-Modern software delivery depends on a complex graph of open-source packages, build systems, CI identities, artifact registries, and external suppliers. ChainProof turns that graph into actionable, explainable release assurance.
+**Cryptographic verification and deterministic policy enforcement are authoritative. AI may explain evidence and recommend actions, but must never substitute for verification or release policy.**
 
-**Cryptographic verification and deterministic policy enforcement are authoritative; AI may explain evidence and recommend actions, but never substitutes for verification or policy decisions.**
+## 2. Current implementation
 
-## Core capabilities
+- Tenant-scoped project registry and GitHub App repository linking foundation.
+- CycloneDX and SPDX SBOM ingestion with bounded parsing, normalization and deduplication.
+- OSV vulnerability intelligence and remediation metadata.
+- Release trust scoring and deterministic eligibility gates.
+- DSSE-wrapped in-toto provenance verification using operator-configured Ed25519 trust keys.
+- Audit events and evidence-oriented release governance.
 
-- Software inventory: ingest and normalize CycloneDX and SPDX SBOMs.
-- Vulnerability intelligence: correlate components with vulnerability advisories, severity, exploitability signals, and remediation guidance.
-- Build provenance: validate artifact digests, attestations, signer identity, and SLSA-aligned provenance.
-- Release Trust Passport: create a tamper-evident, reviewable assurance record for every release.
-- Policy-as-code: evaluate configurable release controls and produce explainable pass, warn, or block decisions.
-- Supplier and component risk: track ownership, criticality, exposure, and remediation across the dependency estate.
-- Incident and compliance workflows: preserve evidence, decisions, exceptions, and audit history.
-- AI-assisted analysis: summarize findings with evidence-linked explanations and human approval for consequential actions.
+**Verification boundary:** the current ChainProof provenance profile is project-specific. It is not a full Sigstore bundle verifier and does not claim SLSA certification. Trust depends on operator-configured public-key roots; vulnerability findings are time-sensitive snapshots.
 
-## Technology
+## 3. Technology stack
 
-- Web: React, TypeScript, Vite, Lucide icons, responsive component architecture, and accessible semantic UI.
-- API: Node.js, Express, TypeScript, Zod, Mongoose, structured logging.
-- Data and jobs: MongoDB, Redis, BullMQ, object storage.
-- Integrations: GitHub, OSV, NVD, CycloneDX, SPDX, Sigstore/Cosign.
-- Operations: Docker, GitHub Actions, OpenTelemetry, metrics, and structured audit events.
+React 19 · TypeScript · Vite · Node.js · Express 5 · MongoDB · Mongoose · Zod · pnpm 10.12.1 · Turborepo.
 
-## Current implementation
+## 4. Architecture
 
-- Enterprise pnpm/Turborepo workspace with React/Vite web application and Express API.
-- Security command center with illustrative posture metrics, risk distribution, posture trend, prioritized findings, and recent activity.
-- MongoDB identity models, organization registration, organization-scoped login, short-lived signed access tokens, hashed opaque refresh-token rotation, replay-triggered revocation, and logout.
-- Every authenticated request checks persisted session, user, organization, and membership; effective roles come from active membership state.
-- Tenant-scoped project registry with bounded listing, create/read/update/archive operations, organization-scoped MongoDB filters, strict validation, audit events, and a live React workspace for project lifecycle management.
-- GitHub App installation verification, selected-repository discovery, tenant-safe project linking, and installation lifecycle webhook reconciliation.
-- Bounded project-scoped CycloneDX 1.x and SPDX 2.x JSON SBOM ingestion, normalized component metadata, SHA-256 duplicate detection, and audit events.
-- OSV.dev vulnerability scanning by versioned PURL, advisory detail enrichment, CVSS v3 scoring, fixed-version recommendations, and tenant-scoped findings.
-- Authentication routes use strict Zod validation and IP-based rate limiting. MongoDB registration transactions require a replica-set deployment.
-- MFA, SSO, email verification, password recovery, invitations, and production-grade GitHub App installation administration remain future work.
+- `apps/web`: React security and project workspaces.
+- `apps/api`: Express API, tenant-scoped domains, SBOM and release services.
+- `packages`: shared tooling/contracts where present.
+- `docs`: architecture, threat model, security and integration notes.
+- Provider integrations use bounded inputs, explicit trust configuration and auditable decisions.
 
-## Architecture principles
+## 5. Local development
 
-1. Tenant isolation is enforced in the data-access layer, not only in UI logic.
-2. Authorization is deny-by-default and evaluated for every protected resource.
-3. Untrusted repositories and artifacts are never executed in the API process.
-4. Ingestion is asynchronous, bounded, observable, and idempotent.
-5. Every security decision records its policy version and supporting evidence.
-6. Secrets are never committed; configuration is validated at process startup.
-7. Security-sensitive operations are auditable and attributable.
+Prerequisites: Node.js 22+, pnpm 10.12.1 (Corepack recommended), Docker and MongoDB replica-set support for transaction-backed paths.
 
-## Repository layout
-
-```text
-apps/
-  api/       Express API
-  web/       React application
-packages/
-  config/    Shared tooling configuration
-  contracts/ Shared API/domain contracts (planned)
-docs/
-  architecture/
-  security/
-infra/
+```bash
+corepack enable
+pnpm install
+cp .env.example .env
+# Configure MONGODB_URI, auth secrets and CHAINPROOF_ATTESTATION_TRUSTED_KEYS.
+pnpm dev
 ```
 
-## Development
+Never store private signing keys in ChainProof. Configure only trusted public keys through the deployment secret/configuration system. Web and API commonly use ports 5173 and 4000 respectively.
 
-Copy `.env.example` to a local environment file, start a MongoDB replica set, then run `pnpm install` and `pnpm dev`. Never commit production credentials.
+Quality checks:
 
-## Roadmap
+```bash
+pnpm typecheck
+pnpm build
+pnpm format:check
+```
 
-- [x] Repository created
-- [x] Milestone 1 — monorepo foundation, developer experience, baseline documentation
-- [x] Milestone 2 — application shell and design system
-- [ ] Milestone 3 — identity, organizations, RBAC, and tenant isolation (persistent identity and session lifecycle foundation implemented; enterprise account controls remain)
-- [ ] Milestone 4 — project and source-control intelligence (tenant-scoped project registry foundation implemented)
-- [x] Milestone 5 — GitHub App integration foundation, tenant repository linking, and bounded SBOM ingestion foundation
-- [ ] Milestone 6 — vulnerability intelligence and remediation workflows
-- [ ] Milestone 7 — provenance verification and Release Trust Passport
-- [ ] Milestone 8 — policy governance, evidence, and audit
-- [ ] Milestone 9 — operational hardening and production readiness
+Run the package-specific test scripts documented in each workspace.
 
-## Security
+## 6. Security controls
 
-Please do not report vulnerabilities in public issues. Follow the process in [SECURITY.md](SECURITY.md).
+- Tenant scope and authorization are enforced server-side.
+- SBOMs and provider responses are treated as untrusted input; size and item counts are bounded.
+- Repository content is not executed by the API.
+- Release trust gates fail closed for incomplete or invalid provenance.
+- Public-key trust roots are operator controlled; private keys remain outside the application.
+- Audit metadata should not retain secrets or unnecessary source payloads.
+- Use synthetic data for demos; perform threat modelling, penetration testing and restore drills before production.
 
-## License
+## 7. Illustrative dashboard gallery
 
-License selection will be made before the first public release.
+These 12 views are **illustrative SVG dashboard concepts**, not screenshots captured from a running deployment. They contain synthetic sample data and do not prove that every depicted module is implemented. They are arranged in a single vertical column for full-width inspection.
+
+### 01. Software supply-chain command center
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Software supply-chain command center](docs/assets/dashboard/01-software-supply-chain-command-center.svg)
+
+### 02. SBOM inventory
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof SBOM inventory](docs/assets/dashboard/02-sbom-inventory.svg)
+
+### 03. Vulnerability intelligence
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Vulnerability intelligence](docs/assets/dashboard/03-vulnerability-intelligence.svg)
+
+### 04. Release trust passport
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Release trust passport](docs/assets/dashboard/04-release-trust-passport.svg)
+
+### 05. Provenance verification
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Provenance verification](docs/assets/dashboard/05-provenance-verification.svg)
+
+### 06. Policy & release gates
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Policy & release gates](docs/assets/dashboard/06-policy-release-gates.svg)
+
+### 07. Dependency risk graph
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Dependency risk graph](docs/assets/dashboard/07-dependency-risk-graph.svg)
+
+### 08. Remediation workspace
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Remediation workspace](docs/assets/dashboard/08-remediation-workspace.svg)
+
+### 09. GitHub integration health
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof GitHub integration health](docs/assets/dashboard/09-github-integration-health.svg)
+
+### 10. Audit & evidence trail
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Audit & evidence trail](docs/assets/dashboard/10-audit-evidence-trail.svg)
+
+### 11. Supplier & component risk
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Supplier & component risk](docs/assets/dashboard/11-supplier-component-risk.svg)
+
+### 12. Security posture analytics
+
+Illustrative software assurance view showing a representative security operator workflow. All values are synthetic and are not live vulnerability or release telemetry.
+
+![ChainProof Security posture analytics](docs/assets/dashboard/12-security-posture-analytics.svg)
 
 
-## Tenant-scoped project registry UI
+## 8. Engineering delivery
 
-The Projects workspace now authenticates against the ChainProof API and supports searchable active/archived project lists, project creation, metadata editing, and soft archival. It displays repository metadata and any verified GitHub repository links already associated with the selected project. Tenant ownership is always derived by the API from the authenticated session. Configure `VITE_API_BASE_URL` as described in [Web project registry](docs/architecture/WEB-PROJECT-REGISTRY.md).
+GitHub Actions includes CI, CodeQL, secret scanning and dependency auditing. Review live advisory status before release. Remaining priorities include committed frozen pnpm lockfiles, resolving residual low/moderate dependency advisories, tenant authorization integration tests, end-to-end accessibility checks, immutable action pinning, observability and disaster-recovery exercises.
 
-## GitHub source-control integration foundation
+## 9. Documentation
 
-The API now exposes a signed GitHub webhook intake endpoint at `POST /api/v1/webhooks/github`. Configure `GITHUB_WEBHOOK_SECRET` from GitHub App settings to enable it. The endpoint validates the raw-body HMAC-SHA256 signature, bounds request size and header values, and records idempotent delivery metadata with a payload fingerprint. It intentionally does not persist raw payloads, access tokens, or repository contents, and does not automatically bind installations to tenants. See [GitHub source-control integration architecture](docs/architecture/GITHUB-SOURCE-CONTROL-INTEGRATION.md).
+- [Threat model](docs/security/THREAT-MODEL.md)
+- [Release attestation verification](docs/security/RELEASE-ATTESTATION-VERIFICATION.md)
+- [SBOM ingestion](docs/architecture/SBOM-INGESTION.md)
+- [Vulnerability intelligence](docs/architecture/VULNERABILITY-INTELLIGENCE.md)
 
-This is webhook ingress foundation only; installation authorization, encrypted token custody, repository linking and background reconciliation remain follow-on work.
+## 10. Roadmap
 
+1. Expand provenance conformance and trust-root lifecycle management.
+2. Add continuous SBOM rescans, exploitability enrichment and remediation SLAs.
+3. Add immutable frozen lockfiles and eliminate remaining dependency advisories.
+4. Expand cross-tenant authorization, route integration and browser tests.
+5. Add signed audit export, operational metrics, backup/restore validation and production runbooks.
 
-## GitHub App installation foundation
+## 11. Responsible claims
 
-Milestone 5 now includes an owner/admin-authorized GitHub App installation start flow, signed short-lived state, one-time nonce consumption, current membership revalidation and a pending-verification installation record. Configure `GITHUB_APP_SLUG` to enable the install URL. See [GitHub App installation architecture](docs/architecture/GITHUB-APP-INSTALLATION.md). Installation records remain pending until a future provider-verification worker validates them through GitHub's App API; no token or private key is stored.
-
-
-## GitHub App verification and repository discovery
-
-ChainProof can verify a pending GitHub App installation against GitHub's App API using a short-lived RS256 App JWT, require selected-repository mode and read-only Contents/Metadata permissions, then discover installed repositories with an ephemeral installation token. Set `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY` through a deployment secret manager; never commit credentials. See [GitHub App installation architecture](docs/architecture/GITHUB-APP-INSTALLATION.md). Repository-to-project linking and source ingestion are not yet implemented.
-
-### GitHub repository linking
-
-Verified GitHub App installations can discover repositories and link selected repository IDs to tenant-owned projects. ChainProof validates every selection against GitHub's current installation inventory and stores provider metadata only. Signed installation suspend/delete webhooks update linked repository status. Source ingestion and SBOM analysis are subsequent milestones. See [GitHub App installation and repository linking](docs/architecture/GITHUB-APP-INSTALLATION.md).
-
-
-## SBOM ingestion foundation
-
-Projects accept JSON CycloneDX 1.x and SPDX 2.x SBOMs up to 2 MiB. ChainProof validates and normalizes up to 5,000 components per document, stores package identifiers and license metadata, fingerprints the original bytes with SHA-256, rejects duplicate uploads within a project, and emits an audit event. The raw SBOM is not retained. See [SBOM ingestion architecture](docs/architecture/SBOM-INGESTION.md). This is an initial synchronous ingestion slice; asynchronous processing, full dependency graph persistence, schema conformance, EPSS/KEV/NVD enrichment, and scheduled rescans remain future work.
-
-
-## Vulnerability intelligence foundation
-
-ChainProof can scan an ingested project SBOM against OSV.dev using versioned package URLs. The integration batches package queries, fetches full advisory records, maps advisories back to individual components, derives CVSS v3.0/v3.1 base scores where vectors are supplied, and stores affected/fixed version data with remediation guidance. Tenant-scoped scan and findings APIs are available. Scans are bounded and fail closed on upstream errors; unsupported CVSS v4 vectors are not guessed. See [Vulnerability intelligence architecture](docs/architecture/VULNERABILITY-INTELLIGENCE.md).
-
-
-## Web SBOM and vulnerability workspace
-
-The Components and Vulnerabilities screens now authenticate against the ChainProof API, list active projects and SBOM inventories, upload CycloneDX/SPDX JSON, trigger OSV scans, and display live project-scoped findings with severity, CVSS score, fixed versions, and remediation guidance. Configure `VITE_API_BASE_URL` for the API origin (defaults to `http://localhost:4000`). The web client keeps access/refresh tokens in memory only; access-token refresh is not yet automatic. See [Web SBOM workspace](docs/architecture/WEB-SBOM-WORKSPACE.md).
-
-
-### GitHub App connection workspace
-
-The Projects workspace can start GitHub App installation, refresh and verify pending installations, discover repositories from an active installation, link a selected provider repository to an active project, and manually synchronize verified repository/default-branch commit metadata. The API exposes tenant-scoped installation metadata; repository metadata is sourced from GitHub, not browser input. See [WEB-GITHUB-CONNECTION.md](docs/architecture/WEB-GITHUB-CONNECTION.md).
-
-
-GitHub-connected projects also support on-demand, bounded discovery and ingestion of explicitly named CycloneDX/SPDX SBOM files from the verified repository's default-branch commit. Ingestion validates provider file metadata and parses only candidate SBOM JSON (1 MiB per file, 5 MiB aggregate, 10 candidates, 10,000 tree entries), retains repository/path/commit provenance, and deduplicates by document SHA-256. It does not clone or execute repository contents.
+ChainProof provides software supply-chain security decision support. A trust score is an explainable indicator, not a certification. An SBOM is an inventory, not proof that a build is safe. Validate all policy, provenance and vulnerability evidence in the release context.
