@@ -5,6 +5,7 @@ import { GitHubWebhookDelivery } from "../models/github-webhook-delivery.js";
 import { GitHubInstallState, GitHubInstallation } from "../models/github-installation.js";
 import { GitHubRepositoryLink } from "../models/github-repository-link.js";
 import { Sbom } from "../models/sbom.js";
+import { VulnerabilityFinding } from "../models/vulnerability-finding.js";
 import { logger } from "../lib/logger.js";
 
 async function migrate(): Promise<void> {
@@ -14,9 +15,9 @@ async function migrate(): Promise<void> {
       User.createIndexes(), Organization.createIndexes(), Membership.createIndexes(),
       IdentitySession.createIndexes(), AuditEvent.createIndexes(), Project.createIndexes(),
       GitHubWebhookDelivery.createIndexes(), GitHubInstallState.createIndexes(),
-      GitHubInstallation.createIndexes(), GitHubRepositoryLink.createIndexes(), Sbom.createIndexes()
+      GitHubInstallation.createIndexes(), GitHubRepositoryLink.createIndexes(), Sbom.createIndexes(), VulnerabilityFinding.createIndexes()
     ]);
-    logger.info("Identity, project registry, GitHub webhook, installation, repository-link and SBOM inventory indexes created or verified");
+    logger.info("Identity, project registry, GitHub webhook, installation, repository-link, SBOM and vulnerability finding indexes created or verified");
   } finally { await disconnectDatabase(); }
 }
 
