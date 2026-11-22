@@ -16,7 +16,14 @@ Application identifiers are UUIDs; MongoDB's internal ObjectIds are not accepted
 
 Set `MONGODB_URI` to a private MongoDB deployment. Organization registration uses a MongoDB transaction so user, organization, owner membership, initial session, and audit event commit or roll back together. The MongoDB deployment must therefore be a replica set (a single-node replica set is sufficient for local development). Automatic index creation is disabled in production. Run `pnpm --filter @chainproof/api db:indexes` as a controlled deployment migration after connecting the target database.
 
-Example local URI: `mongodb://127.0.0.1:27017/chainproof?replicaSet=rs0`.
+Example local setup:
+
+```bash
+docker run -d --name chainproof-mongo -p 27017:27017 mongo:8.0 mongod --replSet rs0 --bind_ip_all
+docker exec chainproof-mongo mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+```
+
+Use `mongodb://127.0.0.1:27017/chainproof?replicaSet=rs0` as the local URI.
 
 ## Authentication lifecycle
 
@@ -26,7 +33,7 @@ Example local URI: `mongodb://127.0.0.1:27017/chainproof?replicaSet=rs0`.
 - `POST /api/v1/auth/logout`: requires a live access token and revokes its persisted session.
 - Access tokens are short-lived HMAC-SHA256 signed tokens. Every authenticated request also checks the persisted session, active user, active organization, and active membership. Role claims are refreshed from the membership record rather than trusted from the bearer token.
 
-Authentication routes share an IP-based rate limit. Request bodies are strict Zod schemas. Error responses never return database or cryptographic internals.
+Authentication routes share a process-local IP-based rate limit. Before horizontally scaling production API instances, replace the default in-memory limiter store with a shared Redis-backed store. Request bodies are strict Zod schemas. Error responses never return database or cryptographic internals.
 
 ## Tenant and authorization rules
 
