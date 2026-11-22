@@ -17,10 +17,10 @@ function signature(payload: string, secret: string): string {
   return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
-export function issueSession(input: { userId: string; organizationId: string; roles: readonly Role[]; secret: string; ttlSeconds?: number; now?: number }): string {
+export function issueSession(input: { userId: string; organizationId: string; sessionId?: string; roles: readonly Role[]; secret: string; ttlSeconds?: number; now?: number }): string {
   const now = input.now ?? Math.floor(Date.now() / 1000);
   const claims = sessionSchema.parse({
-    sub: input.userId, orgId: input.organizationId, sid: randomUUID(),
+    sub: input.userId, orgId: input.organizationId, sid: input.sessionId ?? randomUUID(),
     roles: input.roles, iat: now, exp: now + (input.ttlSeconds ?? 900)
   });
   const payload = encode(JSON.stringify(claims));
@@ -28,6 +28,7 @@ export function issueSession(input: { userId: string; organizationId: string; ro
 }
 
 export function verifySession(token: string, secret: string, now = Math.floor(Date.now() / 1000)): SessionClaims | null {
+  if (token.length > 4096) return null;
   const parts = token.split(".");
   if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
   const expected = Buffer.from(signature(parts[0], secret));
