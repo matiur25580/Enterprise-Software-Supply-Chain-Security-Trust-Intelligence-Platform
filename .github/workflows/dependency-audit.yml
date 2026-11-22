@@ -41,7 +41,7 @@ jobs:
             echo "Lockfile is already current"
             exit 0
           fi
-          git commit -m "chore: commit reproducible dependency lockfile [skip ci]"
+          git commit -m "chore: commit reproducible dependency lockfile"
           git push origin "HEAD:${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
       - name: Install from committed lockfile
         run: pnpm install --frozen-lockfile --ignore-scripts
