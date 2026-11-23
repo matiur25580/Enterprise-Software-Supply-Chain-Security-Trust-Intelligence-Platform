@@ -2,93 +2,150 @@
 
 **Enterprise Software Supply Chain Security & Trust Intelligence Platform**
 
-ChainProof helps engineering and security teams understand, verify, govern, and continuously improve the integrity of the software they ship. It brings software inventory, vulnerability intelligence, build provenance, policy decisions, and release evidence into one auditable workflow.
+> Turn software composition, build provenance and security policy evidence into explainable release assurance.
 
-> **Project status:** Early implementation · Enterprise foundation and the initial security command-center UI are in progress. Dashboard metrics currently use clearly labeled sample data.
+## 1. Product vision
 
-## Product vision
+ChainProof is designed to help engineering and security teams inventory software components, correlate vulnerability intelligence, verify build provenance and govern release decisions through auditable evidence.
 
-Modern software delivery depends on a complex graph of open-source packages, build systems, CI identities, artifact registries, and external suppliers. ChainProof turns that graph into actionable, explainable release assurance.
+**Trust principle:** cryptographic verification and deterministic policy enforcement are authoritative. AI-assisted analysis may explain evidence or suggest remediation, but it must never replace signature verification, policy evaluation or accountable human approval.
 
-The platform is designed around a central principle: **cryptographic verification and deterministic policy enforcement are authoritative; AI may explain evidence and recommend actions, but never substitutes for verification or policy decisions.**
+## 2. Project status
 
-## Core capabilities
+**Status: foundation and milestone-driven portfolio development.** Capabilities described here represent the product scope and should be considered implemented only when present on the selected branch with tests and CI evidence. The dashboard gallery contains synthetic illustrative SVGs, not screenshots from a live deployment.
 
-- **Software inventory:** ingest and normalize CycloneDX and SPDX SBOMs.
-- **Vulnerability intelligence:** correlate components with vulnerability advisories, severity, exploitability signals, and remediation guidance.
-- **Build provenance:** validate artifact digests, attestations, signer identity, and SLSA-aligned provenance.
-- **Release Trust Passport:** create a tamper-evident, reviewable assurance record for every release.
-- **Policy-as-code:** evaluate configurable release controls and produce explainable pass, warn, or block decisions.
-- **Supplier and component risk:** track ownership, criticality, exposure, and remediation across the dependency estate.
-- **Incident and compliance workflows:** preserve evidence, decisions, exceptions, and audit history.
-- **AI-assisted analysis:** summarize findings with evidence-linked explanations and human approval for consequential actions.
+## 3. Core capabilities
 
-## Planned technology
+- **SBOM inventory:** ingest and normalize CycloneDX and SPDX software bills of materials.
+- **Vulnerability intelligence:** correlate components with advisories, severity, exploitability context and remediation guidance.
+- **Build provenance:** verify artifact digests, signer identity, attestations and SLSA-aligned provenance.
+- **Release Trust Passport:** assemble reviewable, evidence-backed assurance records for releases.
+- **Policy-as-code:** evaluate versioned controls and return explainable pass, warn or block outcomes.
+- **Dependency risk:** understand transitive dependency relationships, criticality and ownership.
+- **Supplier governance:** track supplier and component risk, exceptions and remediation.
+- **Incident evidence:** preserve correlated findings, decisions and investigation history.
+- **AI-assisted explanation:** produce evidence-linked summaries with human oversight for consequential actions.
 
-- **Web:** React, TypeScript, Vite, Lucide icons, responsive component architecture, and accessible semantic UI.
-- **API:** Node.js, Express, TypeScript, Zod, structured logging.
-- **Data and jobs:** MongoDB, Redis, BullMQ, object storage.
-- **Integrations:** GitHub, OSV, NVD, CycloneDX, SPDX, Sigstore/Cosign.
-- **Operations:** Docker, GitHub Actions, OpenTelemetry, metrics, and structured audit events.
+## 4. Current implementation snapshot
 
-The stack and integration boundaries will be finalized through implementation milestones; external integrations will be introduced behind explicit adapters.
+The foundation branch currently contains:
+- A pnpm/Turborepo workspace with a React 19 + Vite web application and an Express 5 API.
+- An initial Security Command Center interface with posture metrics, risk distribution, posture trend, prioritized findings and recent activity.
+- Responsive workspace navigation and a searchable vulnerability sample table.
+- Baseline API hardening including Zod environment validation, Helmet, explicit CORS configuration, bounded JSON parsing and structured logging with sensitive-field redaction.
+- Local MongoDB and Redis development services, plus a GitHub Actions typecheck/build workflow.
 
-## Current implementation
+The dashboard uses illustrative/sample data. Live vulnerability feeds, cryptographic provenance verification, policy enforcement, production telemetry and production deployment are not established by this foundation milestone. See [architecture notes](docs/architecture/README.md), [UI foundation](docs/architecture/UI-FOUNDATION.md) and the [initial threat model](docs/security/THREAT-MODEL.md).
 
-- Enterprise pnpm/Turborepo workspace with a React/Vite web application and Express API.
-- Initial security command center with posture metrics, risk distribution, posture trend, prioritized findings, and recent activity.
-- Responsive workspace navigation and searchable vulnerability sample table.
-- Dashboard data is illustrative only; live telemetry and domain workflows are not yet connected.
-- See [architecture notes](docs/architecture/README.md) and the [initial threat model](docs/security/THREAT-MODEL.md).
+## 5. Technology direction
 
-## Architecture principles
+- Web: React, TypeScript, Vite and Tailwind CSS.
+- API: Node.js, Express, TypeScript and Zod.
+- Data and jobs: MongoDB, Redis/BullMQ and object storage where enabled.
+- Integrations: GitHub, OSV, NVD, CycloneDX, SPDX and Sigstore/Cosign adapters.
+- Operations: Docker, GitHub Actions, structured logs and OpenTelemetry-oriented observability.
 
-1. Tenant isolation is enforced in the data-access layer, not only in UI logic.
-2. Authorization is deny-by-default and evaluated for every protected resource.
-3. Untrusted repositories and artifacts are never executed in the API process.
-4. Ingestion is asynchronous, bounded, observable, and idempotent.
-5. Every security decision records its policy version and supporting evidence.
-6. Secrets are never committed; configuration is validated at process startup.
-7. Security-sensitive operations are auditable and attributable.
+Confirm actual package versions and enabled integrations from the checked-out branch and environment configuration.
 
-## Repository layout
+## 6. Architecture and security principles
 
-The repository is being established as a pnpm monorepo:
+1. Enforce tenant isolation and authorization in service and data-access layers.
+2. Never execute untrusted repositories, build scripts or uploaded artifacts inside the API process.
+3. Make ingestion asynchronous, bounded, observable and idempotent.
+4. Record policy version, signer identity, evidence references and decision rationale.
+5. Treat SBOMs and attestations as untrusted input until schema and cryptographic checks pass.
+6. Keep credentials in a secret manager; use references rather than raw secrets in workflow definitions.
+7. Separate AI explanations from trusted verification and release-policy decisions.
+8. Make security exceptions time-bound, attributable and reviewable.
 
-```text
-apps/
-  api/       Express API
-  web/       React application
-packages/
-  config/    Shared tooling configuration
-  contracts/ Shared API/domain contracts (planned)
-docs/
-  architecture/
-  security/
-infra/
-```
+## 7. Repository layout
 
-## Development
+The project is organized as a monorepo with API and web applications, shared tooling/contracts, infrastructure and architecture/security documentation. Refer to the selected branch for the current exact layout.
 
-Prerequisites and exact commands will be documented as the foundation milestone lands. Never place production credentials in local files committed to Git; use `.env.example` only for variable names and safe defaults.
+## 8. Local development
 
-## Roadmap
+1. Install the Node.js and package-manager versions declared by the workspace.
+2. Review `.env.example` files and configure local-only credentials and services.
+3. Install dependencies using the committed lockfile and repository package manager.
+4. Start only the local services documented for the selected milestone.
+5. Run the scripts declared by root and application manifests.
+6. Run typecheck, tests, build and relevant security checks before proposing a merge.
 
-- [x] Repository created
-- [ ] Milestone 1 — monorepo foundation, developer experience, baseline documentation
-- [ ] Milestone 2 — application shell and design system
-- [ ] Milestone 3 — identity, organizations, RBAC, and tenant isolation
-- [ ] Milestone 4 — project and source-control intelligence
-- [ ] Milestone 5 — SBOM ingestion and component inventory
-- [ ] Milestone 6 — vulnerability intelligence and remediation workflows
-- [ ] Milestone 7 — provenance verification and Release Trust Passport
-- [ ] Milestone 8 — policy governance, evidence, and audit
-- [ ] Milestone 9 — operational hardening and production readiness
+Do not commit provider tokens, private keys, signing material, production SBOMs or confidential source metadata.
 
-## Security
+## 9. Verification and release-quality strategy
 
-Please do not report vulnerabilities in public issues. Follow the process in [SECURITY.md](SECURITY.md).
+- Validate SBOM schemas and normalize package identifiers before correlation.
+- Verify artifact digest and signature against trusted identity policy.
+- Preserve provenance and policy evaluation inputs for reproducibility.
+- Test malformed, oversized and adversarial ingestion payloads.
+- Exercise tenant boundaries, exception expiry and policy-version changes.
+- Monitor dependency advisories and keep CI actions and build tooling maintained.
 
-## License
+## 10. Illustrative dashboard gallery
 
-License selection will be made before the first public release.
+The 12 SVGs below are **illustrative dashboard concepts**, not production screenshots. All values, components and events are synthetic. The single-column gallery is intended for full-width review.
+
+### 01 — Software supply chain command center
+A high-level view of component exposure, release assurance and verification activity.
+![ChainProof software supply chain command center](docs/assets/dashboard/01-software-supply-chain-command-center.svg)
+
+### 02 — SBOM inventory explorer
+A component inventory concept for CycloneDX/SPDX coverage and dependency lineage.
+![ChainProof SBOM inventory explorer](docs/assets/dashboard/02-sbom-inventory-explorer.svg)
+
+### 03 — Vulnerability intelligence
+An advisory triage view for severity context, exposure and remediation priority.
+![ChainProof vulnerability intelligence](docs/assets/dashboard/03-vulnerability-intelligence.svg)
+
+### 04 — Build provenance verification
+A verification workspace for artifact digests, signer identity and attestations.
+![ChainProof build provenance verification](docs/assets/dashboard/04-provenance-verification.svg)
+
+### 05 — Release trust passport
+An evidence-backed release assurance summary with policy evaluation context.
+![ChainProof release trust passport](docs/assets/dashboard/05-release-trust-passport.svg)
+
+### 06 — Policy-as-code workbench
+A view of versioned controls, evaluation outcomes and explainable release decisions.
+![ChainProof policy-as-code workbench](docs/assets/dashboard/06-policy-as-code-workbench.svg)
+
+### 07 — Dependency risk graph
+A conceptual view of transitive dependencies and critical package exposure.
+![ChainProof dependency risk graph](docs/assets/dashboard/07-dependency-risk-graph.svg)
+
+### 08 — Supplier risk workspace
+A governance view of component ownership, supplier criticality and remediation.
+![ChainProof supplier risk workspace](docs/assets/dashboard/08-supplier-risk-workspace.svg)
+
+### 09 — Artifact integrity monitor
+A monitor for digest drift, signature status and artifact verification events.
+![ChainProof artifact integrity monitor](docs/assets/dashboard/09-artifact-integrity-monitor.svg)
+
+### 10 — Security exception governance
+A workflow for time-bound exceptions, approvers and compensating controls.
+![ChainProof security exception governance](docs/assets/dashboard/10-security-exception-governance.svg)
+
+### 11 — Incident evidence timeline
+A timeline concept for correlated alerts, investigation notes and evidence references.
+![ChainProof incident evidence timeline](docs/assets/dashboard/11-incident-evidence-timeline.svg)
+
+### 12 — Compliance assurance report
+A summary of control coverage, evidence freshness and audit-ready release signals.
+![ChainProof compliance assurance report](docs/assets/dashboard/12-compliance-assurance-report.svg)
+
+## 11. Documentation and contribution
+
+Review `docs/architecture` and `docs/security` for current design decisions. Follow [SECURITY.md](SECURITY.md) for responsible disclosure and [CONTRIBUTING.md](CONTRIBUTING.md) for engineering and pull-request expectations.
+
+## 12. Roadmap themes
+
+- Expand SBOM ingestion and component normalization coverage.
+- Improve provenance verification and trusted-builder policy.
+- Add reproducible policy evaluations and richer release evidence.
+- Strengthen ingestion sandboxing, tenant isolation and abuse controls.
+- Improve end-to-end coverage, observability and operational recovery.
+
+## 13. License
+
+No open-source license is applied unless a license file is present. All rights are otherwise reserved.

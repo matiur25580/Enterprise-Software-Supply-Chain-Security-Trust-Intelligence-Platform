@@ -1,20 +1,19 @@
 # Contributing
 
-Thanks for helping improve ChainProof.
+Contributions to ChainProof should preserve the distinction between cryptographic verification, deterministic policy decisions, and advisory AI-generated explanations.
 
-## Development expectations
+## Before starting
+- Read README.md and SECURITY.md.
+- Propose an architecture decision for changes that affect trust boundaries, ingestion, or policy semantics.
+- Never commit credentials, private source code, customer SBOMs, proprietary artifacts, or vulnerability data that is not public.
 
-- Use TypeScript strict mode and keep domain boundaries explicit.
-- Validate untrusted input at system boundaries.
-- Add tests for behavior and security invariants when introducing domain functionality.
-- Never execute repository content, package lifecycle scripts, or uploaded artifacts as part of ingestion.
-- Never commit credentials, tokens, customer data, or production configuration.
-- Keep changes focused and document material architecture decisions.
+## Engineering expectations
+- Treat all uploaded artifacts and remote metadata as untrusted.
+- Keep artifact parsing and analysis isolated from privileged API processes.
+- Verify digests and signer identities before accepting provenance claims.
+- Make ingestion bounded, idempotent, observable, and safe to retry.
+- Add tests for malformed inputs, authorization, tenant isolation, and verification failures.
+- AI output must not override cryptographic checks or policy outcomes.
 
 ## Pull requests
-
-Explain the problem, approach, security implications, and validation performed. Include screenshots for user-facing changes and migration notes for data-model changes.
-
-## Commit messages
-
-Prefer conventional prefixes such as feat, fix, docs, test, refactor, and chore.
+Document the threat-model impact, tests and commands run, supported formats, failure behavior, and any limitations. Avoid claims of SLSA conformance or security assurance unless verified against the relevant requirements.

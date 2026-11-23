@@ -2,14 +2,20 @@
 
 ## Reporting a vulnerability
 
-Please do not disclose suspected vulnerabilities in public issues or pull requests. Use GitHub private vulnerability reporting for this repository when enabled, or contact the repository maintainer privately through GitHub.
+Do not disclose exploitable details, credentials, private package metadata, or customer artifacts in public issues. Use GitHub's private vulnerability reporting channel when available. Include affected components, impact, safe reproduction steps, and redacted evidence.
 
-Include the affected component, impact, reproduction steps, and relevant logs or proof of concept. Do not include customer data, credentials, or other secrets.
+## Security requirements
 
-## Response expectations
+- Treat repositories, SBOMs, packages, build artifacts, attestations, and webhook payloads as untrusted.
+- Never execute untrusted source or artifacts inside the API process or with privileged credentials.
+- Verify artifact digests, signer identity, provenance, and policy inputs cryptographically before making trust decisions.
+- Keep AI-generated explanations advisory; deterministic verification and policy evaluation remain authoritative.
+- Isolate tenants and enforce authorization server-side for every resource.
+- Bound ingestion size, execution time, retries, and external requests.
+- Store secrets outside source control and redact them from logs and traces.
+- Preserve audit records for policy versions, evidence, overrides, and release decisions.
+- Use disposable, least-privilege workers for any future analysis of untrusted artifacts.
 
-This is an early-stage project and does not yet publish a guaranteed response SLA. Reports will be triaged in good faith; coordinated disclosure is appreciated.
+## Project status
 
-## Scope notes
-
-A feature being present in the repository does not imply it is production-hardened or suitable for sensitive enterprise data.
+This repository is in its foundation phase. The policy describes design expectations, not implemented controls or a security certification.
