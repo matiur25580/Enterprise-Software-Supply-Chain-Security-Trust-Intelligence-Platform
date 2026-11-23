@@ -4,7 +4,7 @@
 
 ChainProof helps engineering and security teams understand, verify, govern, and continuously improve the integrity of the software they ship. It brings software inventory, vulnerability intelligence, build provenance, policy decisions, and release evidence into one auditable workflow.
 
-> **Project status:** Early implementation · Enterprise foundation and the initial security command-center UI are in progress. Dashboard metrics currently use clearly labeled sample data.
+> **Project status:** Early implementation · Enterprise foundation, security command center, and persistent API identity foundation are in progress. Dashboard metrics remain illustrative sample data.
 
 ## Product vision
 
@@ -23,23 +23,23 @@ The platform is designed around a central principle: **cryptographic verificatio
 - **Incident and compliance workflows:** preserve evidence, decisions, exceptions, and audit history.
 - **AI-assisted analysis:** summarize findings with evidence-linked explanations and human approval for consequential actions.
 
-## Planned technology
+## Technology
 
 - **Web:** React, TypeScript, Vite, Lucide icons, responsive component architecture, and accessible semantic UI.
-- **API:** Node.js, Express, TypeScript, Zod, structured logging.
+- **API:** Node.js, Express, TypeScript, Zod, Mongoose, structured logging.
 - **Data and jobs:** MongoDB, Redis, BullMQ, object storage.
 - **Integrations:** GitHub, OSV, NVD, CycloneDX, SPDX, Sigstore/Cosign.
 - **Operations:** Docker, GitHub Actions, OpenTelemetry, metrics, and structured audit events.
 
-The stack and integration boundaries will be finalized through implementation milestones; external integrations will be introduced behind explicit adapters.
-
 ## Current implementation
 
 - Enterprise pnpm/Turborepo workspace with a React/Vite web application and Express API.
-- Initial security command center with posture metrics, risk distribution, posture trend, prioritized findings, and recent activity.
-- Responsive workspace navigation and searchable vulnerability sample table.
-- Dashboard data is illustrative only; live telemetry and domain workflows are not yet connected.
-- See [architecture notes](docs/architecture/README.md) and the [initial threat model](docs/security/THREAT-MODEL.md).
+- Initial security command center with illustrative posture metrics, risk distribution, posture trend, prioritized findings, and recent activity.
+- Persistent MongoDB identity models for users, organizations, memberships, sessions, and audit events.
+- Organization registration, organization-scoped login, short-lived signed access tokens, hashed opaque refresh-token rotation, replay-triggered session revocation, and logout.
+- Every authenticated request checks persisted session, user, organization, and membership state; authorization roles are sourced from the active membership.
+- Auth endpoints use strict Zod validation and IP-based rate limiting. MongoDB registration transactions require a replica-set deployment.
+- MFA, SSO, email verification, password recovery, invitations, and application-domain repositories remain future work.
 
 ## Architecture principles
 
@@ -52,8 +52,6 @@ The stack and integration boundaries will be finalized through implementation mi
 7. Security-sensitive operations are auditable and attributable.
 
 ## Repository layout
-
-The repository is being established as a pnpm monorepo:
 
 ```text
 apps/
@@ -70,14 +68,14 @@ infra/
 
 ## Development
 
-Prerequisites and exact commands will be documented as the foundation milestone lands. Never place production credentials in local files committed to Git; use `.env.example` only for variable names and safe defaults.
+Copy `.env.example` to a local environment file, start a MongoDB replica set, then run `pnpm install` and `pnpm dev`. Never commit production credentials.
 
 ## Roadmap
 
 - [x] Repository created
-- [ ] Milestone 1 — monorepo foundation, developer experience, baseline documentation
-- [ ] Milestone 2 — application shell and design system
-- [ ] Milestone 3 — identity, organizations, RBAC, and tenant isolation
+- [x] Milestone 1 — monorepo foundation, developer experience, baseline documentation
+- [x] Milestone 2 — application shell and design system
+- [ ] Milestone 3 — identity, organizations, RBAC, and tenant isolation (persistent identity and session lifecycle foundation implemented; enterprise account controls and tenant resource repositories remain)
 - [ ] Milestone 4 — project and source-control intelligence
 - [ ] Milestone 5 — SBOM ingestion and component inventory
 - [ ] Milestone 6 — vulnerability intelligence and remediation workflows
