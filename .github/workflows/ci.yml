@@ -22,15 +22,16 @@ jobs:
       AUTH_SESSION_SECRET: ci-only-secret-that-is-long-enough-for-testing-123456
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: 10.12.1
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
+          package-manager-cache: false
       - name: Install
         run: pnpm install --no-frozen-lockfile
       - name: Start MongoDB replica set
