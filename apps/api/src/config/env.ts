@@ -17,7 +17,7 @@ export function parseEnvironment(source: NodeJS.ProcessEnv = process.env) {
     if (value.NODE_ENV === "production") {
       const suppliedSecret = source.AUTH_SESSION_SECRET;
       // Require a 32-byte random value encoded as unpadded base64url (43 chars).
-      // This intentionally rejects all repository/example development placeholders.
+      // This rejects the development fallback and the committed .env.example placeholder.
       if (!suppliedSecret || !/^[A-Za-z0-9_-]{43}$/.test(suppliedSecret)) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
@@ -25,7 +25,7 @@ export function parseEnvironment(source: NodeJS.ProcessEnv = process.env) {
           message: "Production requires an explicitly supplied 32-byte random secret encoded as 43-character base64url."
         });
       }
-      if (/localhost|127\\.0\\.0\\.1/.test(value.MONGODB_URI)) {
+      if (value.MONGODB_URI.includes("localhost") || value.MONGODB_URI.includes("127.0.0.1")) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["MONGODB_URI"],
