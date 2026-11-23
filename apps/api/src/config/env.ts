@@ -13,7 +13,7 @@ const envSchema = z.object({
   GITHUB_WEBHOOK_SECRET: z.preprocess((value) => value === "" ? undefined : value, z.string().min(32).optional()),
   GITHUB_APP_SLUG: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[A-Za-z0-9-]+$/).optional()),
   GITHUB_APP_ID: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[0-9]+$/).optional()),
-  GITHUB_APP_PRIVATE_KEY: z.preprocess((value) => value === "" ? undefined : typeof value === "string" ? value.replace(/\\\\n/g, "\n") : value, z.string().min(100).optional()),
+  GITHUB_APP_PRIVATE_KEY: z.preprocess((value) => value === "" ? undefined : typeof value === "string" ? value.replace(/\\n/g, "\n") : value, z.string().min(100).optional()),
   CHAINPROOF_ATTESTATION_TRUSTED_KEYS: z.preprocess((value) => value === "" ? undefined : value, z.string().optional())
 });
 
