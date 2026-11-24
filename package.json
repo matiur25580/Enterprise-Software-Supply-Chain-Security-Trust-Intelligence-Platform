@@ -5,10 +5,14 @@
   "description": "Software supply-chain security and trust intelligence platform",
   "scripts": {
     "dev": "tsx watch apps/api/src/server.ts",
-    "build": "tsc -p apps/api/tsconfig.json",
-    "typecheck": "tsc --noEmit -p apps/api/tsconfig.json",
+    "build": "npm run build:api && npm run build:web",
+    "typecheck": "tsc --noEmit -p apps/api/tsconfig.json && npm run typecheck:web",
     "start": "node dist/server.js",
-    "user:create": "tsx scripts/create-user.ts"
+    "user:create": "tsx scripts/create-user.ts",
+    "dev:web": "vite --config apps/web/vite.config.ts",
+    "build:api": "tsc -p apps/api/tsconfig.json",
+    "build:web": "vite build --config apps/web/vite.config.ts",
+    "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -18,7 +22,9 @@
     "zod": "^3.24.2",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "express-rate-limit": "^7.5.0"
+    "express-rate-limit": "^7.5.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -27,7 +33,11 @@
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "@types/bcryptjs": "^2.4.6",
-    "@types/jsonwebtoken": "^9.0.9"
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.1.0"
   },
   "engines": {
     "node": ">=20"
