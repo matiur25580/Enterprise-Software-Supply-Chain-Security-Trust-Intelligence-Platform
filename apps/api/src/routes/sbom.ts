@@ -22,10 +22,6 @@ const sbomInputSchema = z.object({
   source: z.string().max(500).optional(),
   documentDigest: z.string().regex(/^[a-f0-9]{64}$/i).optional()
 }).strict();
-function escapeRegex(value: string): string {
-  const special = new Set([".", "*", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]", "\\"]);
-  return [...value].map((character) => special.has(character) ? `\\${character}` : character).join("");
-}
 function csvCell(value: unknown): string {
   const raw = value == null ? "" : String(value);
   // Prevent spreadsheet formula execution when a CSV is opened in office tools.
