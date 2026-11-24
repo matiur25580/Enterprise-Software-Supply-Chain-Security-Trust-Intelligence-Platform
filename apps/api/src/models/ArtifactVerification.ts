@@ -4,7 +4,7 @@ const artifactVerificationSchema = new Schema({
   tenantId: { type: String, required: true, trim: true, maxlength: 120 },
   artifactDigest: { type: String, required: true, match: /^[a-f0-9]{64}$/ },
   digestAlgorithm: { type: String, enum: ["sha256"], required: true },
-  verificationType: { type: String, enum: ["sigstore-slsa-provenance"], required: true },
+  verificationType: { type: String, enum: ["sigstore-slsa-provenance", "sigstore-artifact-signature"], required: true },
   status: { type: String, enum: ["verified", "rejected"], required: true },
   certificateIssuer: { type: String, maxlength: 500 },
   certificateIdentity: { type: String, maxlength: 1000 },
