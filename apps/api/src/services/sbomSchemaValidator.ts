@@ -47,7 +47,7 @@ addFormats(ajv);
 ajv.addFormat("iri-reference", {
   type: "string",
   validate: (value: string) => {
-    if (/[\\u0000-\\u0020\\u007f]/.test(value)) return false;
+    if (/[\u0000-\u0020\u007f]/.test(value)) return false;
     try {
       new URL(value, "https://chainproof.invalid/");
       return true;
