@@ -4,6 +4,7 @@ import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { isValidObjectId } from "mongoose";
 import { SbomRecord } from "../models/SbomRecord";
+import { SbomIngestionJob } from "../models/SbomIngestionJob";
 import { parseSbomDocument, SbomValidationError } from "../services/sbomParser";
 import { queryOsvByPurls, OsvServiceError } from "../services/osvClient";
 import { enrichExploitability } from "../services/exploitabilityEnrichment";
@@ -137,6 +138,70 @@ sbomRouter.get("/:id/vulnerability-scans", sbomReadLimiter, authorize("platform-
     response.status(200).json({ items: scans, count: scans.length });
   } catch {
     response.status(500).json({ error: "Unable to load vulnerability scan history" });
+  }
+});
+
+/** Queue validated, normalized SBOM data for durable asynchronous persistence. */
+sbomRouter.post("/document/async", sbomReadLimiter, authorize("platform-admin", "security-analyst", "developer"), intakeLimiter, async (request, response) => {
+  const input = z.object({ document: z.unknown(), source: z.string().max(500).optional() }).strict().safeParse(request.body);
+  if (!input.success) {
+    response.status(400).json({ error: "SBOM upload request is invalid" });
+    return;
+  }
+  try {
+    const parsed = parseSbomDocument(input.data.document);
+    const job = await SbomIngestionJob.create({
+      tenantId: request.auth!.tenantId,
+      status: "queued",
+      payload: parsed,
+      source: input.data.source,
+      attempts: 0,
+      maxAttempts: 3,
+      availableAt: new Date()
+    });
+    response.status(202).json({
+      status: "queued",
+      jobId: String(job._id),
+      statusUrl: `/api/sboms/ingestion-jobs/${job._id}`,
+      message: "SBOM schema validation and normalization completed. Durable inventory persistence is queued."
+    });
+  } catch (error) {
+    if (error instanceof SbomValidationError) {
+      response.status(400).json({ error: "SBOM document failed validation", reason: error.message });
+      return;
+    }
+    response.status(500).json({ error: "Unable to queue SBOM ingestion" });
+  }
+});
+
+/** Tenant-scoped status endpoint; internal payload and worker lease details are never exposed. */
+sbomRouter.get("/ingestion-jobs/:id", sbomReadLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+  if (!isValidObjectId(request.params.id)) {
+    response.status(400).json({ error: "Invalid SBOM ingestion job identifier" });
+    return;
+  }
+  try {
+    const job: any = await SbomIngestionJob.findOne({
+      _id: request.params.id,
+      tenantId: request.auth!.tenantId
+    }).select({ status: 1, attempts: 1, maxAttempts: 1, lastError: 1, sbomId: 1, createdAt: 1, updatedAt: 1, completedAt: 1 }).lean();
+    if (!job) {
+      response.status(404).json({ error: "SBOM ingestion job not found" });
+      return;
+    }
+    response.status(200).json({
+      jobId: String(job._id),
+      status: job.status,
+      attempts: job.attempts,
+      maxAttempts: job.maxAttempts,
+      ...(job.lastError ? { error: job.lastError } : {}),
+      ...(job.sbomId ? { sbomId: String(job.sbomId) } : {}),
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+      ...(job.completedAt ? { completedAt: job.completedAt } : {})
+    });
+  } catch {
+    response.status(500).json({ error: "Unable to load SBOM ingestion job" });
   }
 });
 
