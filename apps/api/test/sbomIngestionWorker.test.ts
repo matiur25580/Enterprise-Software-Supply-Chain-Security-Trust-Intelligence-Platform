@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { claimMock, updateJobMock, recoverMock, persistMock } = vi.hoisted(() => ({
+const { claimMock, updateJobMock, recoverMock, persistMock, parseMock } = vi.hoisted(() => ({
   claimMock: vi.fn(),
   updateJobMock: vi.fn(),
   recoverMock: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock("../src/models/SbomIngestionJob", () => ({
     updateMany: recoverMock
   }
 }));
-vi.mock("../src/models/SbomRecord", () => ({ SbomRecord: { findOneAndUpdate: persistMock } }));
+vi.mock("../src/models/SbomRecord", () => ({ SbomRecord: { findOneAndUpdate: persistMock } }));\nvi.mock("../src/services/sbomParser", () => ({ parseSbomDocument: parseMock, SbomValidationError: class SbomValidationError extends Error {} }));
 
 import { processNextSbomIngestionJob } from "../src/services/sbomIngestionWorker";
 
@@ -43,7 +43,7 @@ function claimedJob(overrides: Record<string, unknown> = {}) {
 describe("durable SBOM ingestion worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    recoverMock.mockResolvedValue({ modifiedCount: 0 });
+    recoverMock.mockResolvedValue({ modifiedCount: 0 });\n    parseMock.mockReturnValue(payload);
     updateJobMock.mockResolvedValue({ modifiedCount: 1 });
   });
 
@@ -64,7 +64,7 @@ describe("durable SBOM ingestion worker", () => {
       expect.objectContaining({ $inc: { attempts: 1 }, $set: expect.objectContaining({ status: "processing" }) }),
       expect.objectContaining({ sort: { createdAt: 1 }, new: true })
     );
-    expect(persistMock).toHaveBeenCalledWith(
+    expect(parseMock).toHaveBeenCalledWith(claimedJob().rawDocument);\n    expect(persistMock).toHaveBeenCalledWith(
       { tenantId: "tenant-a", ingestionJobId: "507f1f77bcf86cd799439011" },
       { $setOnInsert: expect.objectContaining({ ...payload, tenantId: "tenant-a", ingestionStatus: "validated" }) },
       expect.objectContaining({ upsert: true, new: true })
@@ -98,6 +98,23 @@ describe("durable SBOM ingestion worker", () => {
     expect(updateJobMock).toHaveBeenCalledWith(
       { _id: "507f1f77bcf86cd799439011", workerId: expect.stringContaining("sbom-worker-") },
       expect.objectContaining({ $set: expect.objectContaining({ status: "failed", lastError: "SBOM persistence failed after the maximum retry count." }) })
+    );
+  });
+
+  it("fails invalid SBOM documents without retrying and deletes the raw document", async () => {
+    const { SbomValidationError } = await import("../src/services/sbomParser");
+    claimMock.mockReturnValue({ lean: vi.fn().mockResolvedValue(claimedJob()) });
+    parseMock.mockImplementation(() => { throw new SbomValidationError("invalid schema"); });
+
+    await expect(processNextSbomIngestionJob(new Date("2026-11-24T12:00:00Z"))).resolves.toBe(true);
+
+    expect(persistMock).not.toHaveBeenCalled();
+    expect(updateJobMock).toHaveBeenCalledWith(
+      { _id: "507f1f77bcf86cd799439011", workerId: expect.stringContaining("sbom-worker-") },
+      expect.objectContaining({
+        $set: expect.objectContaining({ status: "failed", lastError: "SBOM document failed official schema validation or normalization." }),
+        $unset: expect.objectContaining({ rawDocument: 1 })
+      })
     );
   });
 
