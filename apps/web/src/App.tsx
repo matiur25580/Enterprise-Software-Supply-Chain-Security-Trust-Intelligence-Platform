@@ -1,0 +1,118 @@
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+
+type User = { id: string; tenantId: string; email: string; role: string };
+type Sbom = { _id: string; format: "cyclonedx" | "spdx"; formatVersion: string; documentName: string; documentVersion?: string; componentCount: number; ingestionStatus: string; createdAt: string };
+type Health = { status: string; database: string; service: string };
+const API = import.meta.env.VITE_API_BASE_URL ?? "";
+
+async function api<T>(path: string, token?: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers
+    }
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error ?? `Request failed (${response.status})`);
+  return body as T;
+}
+
+export default function App() {
+  const [token, setToken] = useState("");
+  const [user, setUser] = useState<User | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
+  const [sboms, setSboms] = useState<Sbom[]>([]);
+  const [tenantId, setTenantId] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ format: "cyclonedx", formatVersion: "1.6", documentName: "", documentVersion: "", componentCount: "0" });
+
+  const refresh = useCallback(async (accessToken: string) => {
+    const [h, list] = await Promise.all([
+      api<Health>("/api/health"),
+      api<{ items: Sbom[] }>("/api/sboms?limit=50", accessToken)
+    ]);
+    setHealth(h);
+    setSboms(list.items);
+  }, []);
+
+  useEffect(() => {
+    api<Health>("/api/health").then(setHealth).catch(() => setHealth(null));
+  }, []);
+
+  const totalComponents = useMemo(() => sboms.reduce((sum, item) => sum + item.componentCount, 0), [sboms]);
+
+  async function signIn(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setNotice("");
+    try {
+      const result = await api<{ accessToken: string; user: User }>("/api/auth/login", undefined, {
+        method: "POST", body: JSON.stringify({ tenantId, email, password })
+      });
+      setToken(result.accessToken); setUser(result.user); setPassword("");
+      await refresh(result.accessToken);
+      setNotice("Signed in. Your tenant-scoped SBOM workspace is ready.");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Sign-in failed"); }
+    finally { setBusy(false); }
+  }
+
+  async function submitSbom(event: FormEvent) {
+    event.preventDefault(); if (!token) return;
+    setBusy(true); setNotice("");
+    try {
+      const payload = { ...form, componentCount: Number(form.componentCount) };
+      await api("/api/sboms", token, { method: "POST", body: JSON.stringify(payload) });
+      setForm({ format: "cyclonedx", formatVersion: "1.6", documentName: "", documentVersion: "", componentCount: "0" });
+      await refresh(token);
+      setNotice("SBOM metadata saved to your tenant inventory. File parsing is not enabled yet.");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Could not save SBOM metadata"); }
+    finally { setBusy(false); }
+  }
+
+  function signOut() { setToken(""); setUser(null); setSboms([]); setNotice("Signed out."); }
+
+  return <main className="shell">
+    <aside className="sidebar">
+      <div className="brand"><span className="brand-mark">C</span><div><strong>ChainProof</strong><small>TRUST OPERATIONS</small></div></div>
+      <div className="nav-label">WORKSPACE</div>
+      <div className="nav-item active"><span>◈</span> Command center</div>
+      <div className="nav-item"><span>▤</span> SBOM inventory</div>
+      <div className="nav-item muted"><span>⌁</span> Provenance <em>Planned</em></div>
+      <div className="nav-item muted"><span>⌖</span> Vulnerability intel <em>Planned</em></div>
+      <div className="sidebar-bottom"><span className="status-dot"></span> API workspace <small>{health?.database ?? "checking"}</small></div>
+    </aside>
+    <section className="content">
+      <header className="topbar"><div><span className="eyebrow">SECURITY / OVERVIEW</span><h1>Software supply chain command center</h1></div>
+        {user ? <div className="user-chip"><span className="avatar">{user.email.slice(0,1).toUpperCase()}</span><span>{user.email}<small>{user.role}</small></span><button className="ghost" onClick={signOut}>Sign out</button></div> : <span className="api-state">● {health?.status === "ok" ? "API online" : "Connecting"}</span>}
+      </header>
+      {!user ? <section className="login-panel"><div className="login-copy"><span className="eyebrow">SECURE ACCESS</span><h2>Sign in to your workspace</h2><p>Access is scoped to your organization. Ask your platform administrator to provision an account.</p></div>
+        <form className="login-form" onSubmit={signIn}><label>Tenant ID<input value={tenantId} onChange={e=>setTenantId(e.target.value)} required placeholder="your-organization" /></label><label>Work email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="name@company.com" /></label><label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required /></label><button className="primary" disabled={busy}>{busy ? "Signing in…" : "Sign in securely"} <span>→</span></button></form>
+      </section> : <>
+        <div className="welcome-row"><div><span className="eyebrow">TENANT WORKSPACE</span><h2>Welcome back</h2><p>Evidence-backed inventory starts with accurate component metadata.</p></div><div className="tenant-tag">TENANT <strong>{user.tenantId}</strong></div></div>
+        <section className="metrics">
+          <article className="metric-card"><span>SBOM RECORDS</span><strong>{sboms.length}</strong><small>Tenant inventory entries</small></article>
+          <article className="metric-card"><span>DECLARED COMPONENTS</span><strong>{totalComponents.toLocaleString()}</strong><small>Across saved metadata</small></article>
+          <article className="metric-card"><span>DATABASE</span><strong className="small-value">{health?.database ?? "unknown"}</strong><small>API connection status</small></article>
+        </section>
+        <section className="work-grid">
+          <article className="panel"><div className="panel-head"><div><span className="eyebrow">INVENTORY INTAKE</span><h3>Add SBOM metadata</h3></div><span className="pill">Metadata only</span></div>
+            <form className="sbom-form" onSubmit={submitSbom}>
+              <label>Document name<input required maxLength={200} value={form.documentName} onChange={e=>setForm({...form,documentName:e.target.value})} placeholder="payments-service" /></label>
+              <div className="two-col"><label>Format<select value={form.format} onChange={e=>setForm({...form,format:e.target.value})}><option value="cyclonedx">CycloneDX</option><option value="spdx">SPDX</option></select></label><label>Format version<input required value={form.formatVersion} onChange={e=>setForm({...form,formatVersion:e.target.value})} /></label></div>
+              <div className="two-col"><label>Document version<input value={form.documentVersion} onChange={e=>setForm({...form,documentVersion:e.target.value})} placeholder="1.0.0" /></label><label>Component count<input type="number" min="0" max="1000000" value={form.componentCount} onChange={e=>setForm({...form,componentCount:e.target.value})} /></label></div>
+              <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save metadata"} <span>＋</span></button>
+            </form>
+          </article>
+          <article className="panel"><div className="panel-head"><div><span className="eyebrow">RECENT ACTIVITY</span><h3>SBOM inventory</h3></div><button className="ghost" onClick={()=>refresh(token)}>Refresh ↻</button></div>
+            {sboms.length ? <div className="table-wrap"><table><thead><tr><th>DOCUMENT</th><th>FORMAT</th><th>COMPONENTS</th><th>STATUS</th></tr></thead><tbody>{sboms.map(item=><tr key={item._id}><td><strong>{item.documentName}</strong><small>{item.documentVersion || "No version"} · {new Date(item.createdAt).toLocaleDateString()}</small></td><td>{item.format.toUpperCase()}</td><td>{item.componentCount.toLocaleString()}</td><td><span className="status-pill">{item.ingestionStatus}</span></td></tr>)}</tbody></table></div> : <div className="empty"><span>▤</span><strong>No SBOM metadata yet</strong><p>Save your first record to populate this tenant-scoped inventory.</p></div>}
+          </article>
+        </section>
+      </>}
+      {notice && <div className="notice" role="status">{notice}</div>}
+      <footer>CHAINPROOF · FOUNDATION BUILD <span>Cryptographic verification and release policy are not yet implemented.</span></footer>
+    </section>
+  </main>;
+}
