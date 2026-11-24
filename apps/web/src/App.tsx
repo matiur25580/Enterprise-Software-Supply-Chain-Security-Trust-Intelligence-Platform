@@ -80,7 +80,7 @@ export default function App() {
       await api("/api/sboms", token, { method: "POST", body: JSON.stringify(payload) });
       setForm({ format: "cyclonedx", formatVersion: "1.6", documentName: "", documentVersion: "", componentCount: "0", documentDigest: "" });
       await refresh(token);
-      setNotice("SBOM metadata saved to your tenant inventory. File parsing is not enabled yet.");
+      setNotice("SBOM metadata saved to your tenant inventory. Upload a CycloneDX or SPDX JSON document to enable package analysis.");
     } catch (error) { setNotice(error instanceof Error ? error.message : "Could not save SBOM metadata"); }
     finally { setBusy(false); }
   }
