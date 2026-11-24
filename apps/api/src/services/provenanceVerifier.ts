@@ -42,7 +42,8 @@ export async function verifyArtifactSignature(artifactBase64: string, bundle: un
   const identity = process.env.SIGSTORE_CERTIFICATE_IDENTITY?.trim();
   if (!issuer || !identity) throw new ProvenanceVerificationError("policy_not_configured");
   const artifact = decodeBase64(artifactBase64, 1024 * 1024);
-  if (!isRecord(bundle) || Buffer.byteLength(JSON.stringify(bundle), "utf8") > 512 * 1024) {
+  const serializedBundle = isRecord(bundle) ? JSON.stringify(bundle) : undefined;
+  if (!serializedBundle || Buffer.byteLength(serializedBundle, "utf8") > 512 * 1024) {
     throw new ProvenanceVerificationError("invalid_bundle");
   }
   try {
@@ -72,7 +73,8 @@ export async function verifySlsaProvenance(artifactBase64: string, bundle: unkno
     throw new ProvenanceVerificationError("policy_not_configured");
   }
   const artifact = decodeBase64(artifactBase64, 1024 * 1024);
-  if (!isRecord(bundle) || Buffer.byteLength(JSON.stringify(bundle), "utf8") > 512 * 1024 ||
+  const serializedBundle = isRecord(bundle) ? JSON.stringify(bundle) : undefined;
+  if (!serializedBundle || Buffer.byteLength(serializedBundle, "utf8") > 512 * 1024 ||
       !isRecord(bundle.dsseEnvelope) || typeof bundle.dsseEnvelope.payload !== "string") {
     throw new ProvenanceVerificationError("invalid_bundle");
   }
