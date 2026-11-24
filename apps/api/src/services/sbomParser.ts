@@ -48,7 +48,7 @@ function normalizeComponents(raw: unknown[], nameField: string): NormalizedCompo
     if (!isObject(entry)) throw new SbomValidationError(`Component at index ${index} must be an object`);
     const name = cleanText(entry[nameField], `component[${index}].${nameField}`, 500);
     const version = optionalText(entry.version ?? entry.versionInfo, 200);
-    const purl = normalizePurl(entry.purl ?? entry.externalRefs && undefined);
+    const purl = normalizePurl(entry.purl);
     const supplierValue = isObject(entry.supplier) ? entry.supplier.name : entry.supplier;
     const supplier = optionalText(supplierValue, 200);
     const componentType = optionalText(entry.type, 80);
