@@ -1,5 +1,6 @@
 import { app } from "./app";
-import { connectDatabase } from "./config/database";
+import { connectDatabase, isDatabaseConnected } from "./config/database";
+import { startSbomIngestionWorker } from "./services/sbomIngestionWorker";
 
 const port = Number(process.env.PORT ?? 4000);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -13,6 +14,7 @@ async function start(): Promise<void> {
   // If a URI is supplied but the database is unavailable, fail closed instead
   // of starting an API that operators may assume is fully connected.
   await connectDatabase();
+  if (isDatabaseConnected()) startSbomIngestionWorker();
   app.listen(port, host, () => {
     console.info(`ChainProof API listening on ${host}:${port}`);
   });
