@@ -17,6 +17,7 @@ const releasePassportSignerSchema = new Schema({
 
 releasePassportSignerSchema.index({ tenantId:  1, keyId: 1 }, { unique: true });
 releasePassportSignerSchema.index({ tenantId: 1, status: 1, activatedAt: -1 });
+releasePassportSignerSchema.index({ tenantId: 1 }, { unique: true, partialFilterExpression: { status: "active" } });
 
 const existing = models.ReleasePassportSigner as Model<any> | undefined;
 export const ReleasePassportSigner: Model<any> = existing ?? model<any>("ReleasePassportSigner", releasePassportSignerSchema);
