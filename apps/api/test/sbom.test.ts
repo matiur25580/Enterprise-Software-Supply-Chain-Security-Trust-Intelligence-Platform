@@ -41,6 +41,24 @@ describe("tenant-scoped SBOM API", () => {
     expect(response.status).toBe(200); expect(response.headers["content-type"]).toContain("text/csv");
     expect(response.text).toContain('"inventory,""west"""'); expect(find).toHaveBeenCalledWith({ tenantId: "tenant-a" });
   });
+  it("validates and persists a CycloneDX document without accepting tenant input", async () => {
+    create.mockResolvedValue({ _id: "record-document", tenantId: "tenant-a", format: "cyclonedx" } as never);
+    const response = await request(app).post("/api/sboms/document").send({
+      document: { bomFormat: "CycloneDX", specVersion: "1.6", metadata: { component: { name: "checkout", version: "1.0" } }, components: [{ type: "library", name: "express", version: "4.21.2", purl: "pkg:npm/express@4.21.2" }] }
+    });
+    expect(response.status).toBe(201);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: "tenant-a", format: "cyclonedx", documentName: "checkout", componentCount: 1,
+      ingestionStatus: "validated", normalizedComponents: [expect.objectContaining({ name: "express", purl: "pkg:npm/express@4.21.2" })]
+    }));
+  });
+  it("rejects malformed SBOM documents before persistence", async () => {
+    const response = await request(app).post("/api/sboms/document").send({
+      document: { bomFormat: "CycloneDX", specVersion: "1.3", components: [] }
+    });
+    expect(response.status).toBe(400);
+    expect(create).not.toHaveBeenCalled();
+  });
   it("returns conflict for duplicate document digests", async () => {
     create.mockRejectedValue({ code: 11000 });
     const response = await request(app).post("/api/sboms").send({ format: "cyclonedx", formatVersion: "1.6", documentName: "payments-api", componentCount: 2, documentDigest: "a".repeat(64) });
