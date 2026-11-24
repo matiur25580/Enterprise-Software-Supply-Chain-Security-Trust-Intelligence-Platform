@@ -14,7 +14,6 @@ const sbomReadLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeader
 const intakeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "SBOM intake rate limit exceeded; retry shortly." } });
 const vulnerabilityLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Vulnerability scan rate limit exceeded; retry shortly." } });
 export const sbomRouter = Router();
-sbomRouter.use(sbomReadLimiter);
 const sbomInputSchema = z.object({
   format: z.enum(["cyclonedx", "spdx"]),
   formatVersion: z.string().trim().min(1).max(40),
