@@ -46,4 +46,9 @@ describe("tenant-scoped SBOM API", () => {
     const response = await request(app).post("/api/sboms").send({ format: "cyclonedx", formatVersion: "1.6", documentName: "payments-api", componentCount: 2, documentDigest: "a".repeat(64) });
     expect(response.status).toBe(409);
   });
+  it("neutralizes spreadsheet formulas in exported cells", async () => {
+    queryResult([{ documentName: "=HYPERLINK(1)", format: "spdx", componentCount: 1 }]);
+    const response = await request(app).get("/api/sboms/export.csv");
+    expect(response.text).toContain("'=HYPERLINK(1)");
+  });
 });
