@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 vi.mock("sigstore", () => ({ verify: vi.fn() }));
 import { verify } from "sigstore";
-import { ProvenanceVerificationError, verifySlsaProvenance } from "../src/services/provenanceVerifier";
+import { ProvenanceVerificationError, verifyArtifactSignature, verifySlsaProvenance } from "../src/services/provenanceVerifier";
 
 const sigstoreVerify = vi.mocked(verify);
 const artifact = Buffer.from("chainproof-test-artifact");
@@ -30,6 +30,19 @@ describe("Sigstore SLSA provenance verifier", () => {
     process.env.SIGSTORE_CERTIFICATE_ISSUER = "https://token.actions.githubusercontent.com";
     process.env.SIGSTORE_CERTIFICATE_IDENTITY = "https://github.com/acme/project/.github/workflows/release.yml@refs/heads/main";
     process.env.SLSA_ALLOWED_BUILDERS = "https://github.com/acme/project/.github/workflows/release.yml@refs/heads/main";
+  });
+  it("verifies a Cosign detached signature over the exact artifact bytes", async () => {
+    sigstoreVerify.mockResolvedValue({} as never);
+    const result = await verifyArtifactSignature(artifactBase64, { messageSignature: { signature: "dGVzdA==" } });
+    expect(sigstoreVerify).toHaveBeenCalledWith(expect.any(Object), artifact, {
+      certificateIssuer: process.env.SIGSTORE_CERTIFICATE_ISSUER,
+      certificateIdentity: process.env.SIGSTORE_CERTIFICATE_IDENTITY
+    });
+    expect(result).toEqual({
+      artifactDigest: digest,
+      certificateIssuer: process.env.SIGSTORE_CERTIFICATE_ISSUER,
+      certificateIdentity: process.env.SIGSTORE_CERTIFICATE_IDENTITY
+    });
   });
   it("verifies signature policy and matches the SLSA subject digest to artifact bytes", async () => {
     sigstoreVerify.mockResolvedValue({} as never);
