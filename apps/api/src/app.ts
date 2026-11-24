@@ -10,6 +10,7 @@ import { healthRouter } from "./routes/health";
 import { sbomRouter } from "./routes/sbom";
 import { trustRouter } from "./routes/trust";
 import { policyRouter } from "./routes/policy";
+import { vexRouter } from "./routes/vex";
 
 export const app = express();
 
@@ -26,6 +27,7 @@ app.use("/api/auth", apiLimiter, authRouter);
 app.use("/api/sboms", apiLimiter, authenticate, sbomRouter);
 app.use("/api/trust", apiLimiter, authenticate, trustRouter);
 app.use("/api/policy", apiLimiter, authenticate, policyRouter);
+app.use("/api/vex", apiLimiter, authenticate, vexRouter);
 
 // Serve the compiled Vite application when a web build is present.
 const webDist = path.resolve(process.cwd(), "apps/web/dist");
