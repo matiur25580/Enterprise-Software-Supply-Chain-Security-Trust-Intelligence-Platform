@@ -81,10 +81,13 @@ Express + TypeScript API
   |       |        +-- Zod request validation
   |       +----------- Authentication / RBAC
   +------------------- Tenant-scoped services
-          |
-          v
-       MongoDB
-  users / SBOMs / vulnerability scans / trust audit / policy evaluations / signed release passports
+          |                         |
+          v                         v
+       MongoDB              Durable ingestion jobs
+  users / SBOMs / scans            |
+  trust audit / policies           v
+  signed release passports   Background worker
+                             (atomic leases + retries)
 ```
 
 ### Technology stack
