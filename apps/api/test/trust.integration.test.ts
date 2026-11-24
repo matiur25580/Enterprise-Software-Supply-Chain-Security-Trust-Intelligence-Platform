@@ -4,6 +4,8 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ArtifactVerification } from "../src/models/ArtifactVerification";
 vi.mock("../src/services/provenanceVerifier", () => ({
+  verifyArtifactSignature: vi.fn(),
+  ProvenanceVerificationError: class ProvenanceVerificationError extends Error { constructor(public code: string) { super(code); } },
   verifySlsaProvenance: vi.fn().mockResolvedValue({
     artifactDigest: "a".repeat(64), certificateIssuer: "https://token.actions.githubusercontent.com",
     certificateIdentity: "https://github.com/acme/release/.github/workflows/build.yml@refs/heads/main",
