@@ -33,10 +33,13 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ format: "cyclonedx", formatVersion: "1.6", documentName: "", documentVersion: "", componentCount: "0", documentDigest: "" });
 
-  const refresh = useCallback(async (accessToken: string) => {
+  const refresh = useCallback(async (accessToken: string, q = "", format = "") => {
+    const params = new URLSearchParams({ limit: "50" });
+    if (q.trim()) params.set("q", q.trim());
+    if (format) params.set("format", format);
     const [h, list] = await Promise.all([
       api<Health>("/api/health"),
-      api<{ items: Sbom[] }>("/api/sboms?limit=50", accessToken)
+      api<{ items: Sbom[] }>(`/api/sboms?${params.toString()}`, accessToken)
     ]);
     setHealth(h);
     setSboms(list.items);
