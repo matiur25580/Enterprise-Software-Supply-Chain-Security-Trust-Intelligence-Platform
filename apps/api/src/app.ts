@@ -7,6 +7,7 @@ import { authenticate } from "./middleware/authenticate";
 import { authRouter } from "./routes/auth";
 import { healthRouter } from "./routes/health";
 import { sbomRouter } from "./routes/sbom";
+import { trustRouter } from "./routes/trust";
 
 export const app = express();
 
@@ -18,6 +19,7 @@ app.use(express.json({ limit: "2mb", strict: true }));
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/sboms", authenticate, sbomRouter);
+app.use("/api/trust", authenticate, trustRouter);
 
 // Serve the compiled Vite application when a web build is present.
 const webDist = path.resolve(process.cwd(), "apps/web/dist");
