@@ -9,6 +9,7 @@ export interface PolicyCheck {
   evidence: Record<string, string | number | boolean | null>;
 }
 export interface ReleasePolicyInput {
+  riskAcceptances?: Array<{ exceptionId: string; advisoryId: string; purl: string; rationale: string; compensatingControls: string; acceptedBy: string; acceptedAt: Date | string; expiresAt: Date | string; status: "accepted" | "revoked" }>;
   scan: {
     scannedAt?: Date | string;
     findings?: Array<{
@@ -50,6 +51,24 @@ export function evaluateReleasePolicy(input: ReleasePolicyInput): ReleasePolicyR
     }
     for (const finding of input.scan.findings ?? []) {
       const label = finding.id || "unknown-advisory";
+      const acceptance = (input.riskAcceptances ?? []).find((item) =>
+        item.status === "accepted" && item.advisoryId === finding.id && item.purl === finding.purl &&
+        Number.isFinite(new Date(item.expiresAt).getTime()) && new Date(item.expiresAt).getTime() > (input.now ?? new Date()).getTime()
+      );
+      if (acceptance) {
+        add({
+          id: "vex-risk-acceptance",
+          status: "warn",
+          message: "This exact advisory/package finding has an active, time-limited risk acceptance; the vulnerability remains present and requires reassessment before expiry.",
+          evidence: {
+            exceptionId: acceptance.exceptionId, advisory: label, purl: finding.purl ?? null,
+            rationale: acceptance.rationale, compensatingControls: acceptance.compensatingControls,
+            acceptedBy: acceptance.acceptedBy, acceptedAt: new Date(acceptance.acceptedAt).toISOString(),
+            expiresAt: new Date(acceptance.expiresAt).toISOString()
+          }
+        }, 70);
+        continue;
+      }
       if (finding.isKnownExploited) {
         add({ id: "cisa-kev", status: "block", message: "A component is listed in CISA Known Exploited Vulnerabilities.", evidence: { advisory: label, purl: finding.purl ?? null } }, 100);
       }

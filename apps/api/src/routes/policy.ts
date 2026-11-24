@@ -9,6 +9,7 @@ import { VulnerabilityScan } from "../models/VulnerabilityScan";
 import { ArtifactVerification } from "../models/ArtifactVerification";
 import { PolicyEvaluation } from "../models/PolicyEvaluation";
 import { ReleaseTrustPassport } from "../models/ReleaseTrustPassport";
+import { VexRiskAcceptance } from "../models/VexRiskAcceptance";
 import { createSignedReleasePassport, verifySignedReleasePassport, type SignedReleasePassport } from "../services/releasePassport";
 import { evaluateReleasePolicy } from "../services/releasePolicy";
 
@@ -37,17 +38,23 @@ policyRouter.post("/evaluate-release", policyLimiter, authorize("platform-admin"
       response.status(404).json({ error: "SBOM record not found" });
       return;
     }
-    const [scan, provenance]: [any, any] = await Promise.all([
+    const [scan, provenance, riskAcceptances]: [any, any, any] = await Promise.all([
       VulnerabilityScan.findOne({ tenantId, sbomId: sbom._id, status: "completed" }).sort({ scannedAt: -1 }).lean(),
       ArtifactVerification.findOne({
         tenantId, artifactDigest: parsed.data.artifactDigest.toLowerCase(),
         verificationType: "sigstore-slsa-provenance", status: "verified"
-      }).sort({ createdAt: -1 }).lean()
+      }).sort({ createdAt: -1 }).lean(),
+      VexRiskAcceptance.find({ tenantId, sbomId: sbom._id, status: "accepted", expiresAt: { $gt: new Date() } }).lean()
     ]);
     const result = evaluateReleasePolicy({
       scan: scan ? { scannedAt: scan.scannedAt, findings: scan.findings } : null,
       provenance: provenance ? { artifactDigest: provenance.artifactDigest, status: provenance.status, verificationType: provenance.verificationType } : null,
-      artifactDigest: parsed.data.artifactDigest.toLowerCase()
+      artifactDigest: parsed.data.artifactDigest.toLowerCase(),
+      riskAcceptances: (riskAcceptances ?? []).map((item: any) => ({
+        exceptionId: String(item._id), advisoryId: item.advisoryId, purl: item.purl,
+        rationale: item.rationale, compensatingControls: item.compensatingControls,
+        acceptedBy: item.acceptedBy, acceptedAt: item.acceptedAt, expiresAt: item.expiresAt, status: item.status
+      }))
     });
     const saved = await PolicyEvaluation.create({
       tenantId, sbomId: sbom._id, artifactDigest: parsed.data.artifactDigest.toLowerCase(),
