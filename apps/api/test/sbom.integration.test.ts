@@ -4,6 +4,7 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SbomRecord } from "../src/models/SbomRecord";
 import { SbomIngestionJob } from "../src/models/SbomIngestionJob";
+import { processNextSbomIngestionJob } from "../src/services/sbomIngestionWorker";
 import { VulnerabilityScan } from "../src/models/VulnerabilityScan";
 const { osvQueryMock, enrichMock } = vi.hoisted(() => ({ osvQueryMock: vi.fn(), enrichMock: vi.fn() }));
 vi.mock("../src/services/osvClient", () => ({ OsvServiceError: class OsvServiceError extends Error {}, queryOsvByPurls: osvQueryMock }));
@@ -104,14 +105,21 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     expect(queued.status, JSON.stringify(queued.body)).toBe(202);
     expect(queued.body.status).toBe("queued");
 
-    const status = await request(app).get(queued.body.statusUrl).set("x-test-tenant", "tenant-a");
-    expect(status.status).toBe(200);
-    expect(status.body).toMatchObject({ status: "queued", attempts: 0, maxAttempts: 3 });
-    expect(status.body.payload).toBeUndefined();
+    const queuedStatus = await request(app).get(queued.body.statusUrl).set("x-test-tenant", "tenant-a");
+    expect(queuedStatus.status).toBe(200);
+    expect(queuedStatus.body).toMatchObject({ status: "queued", attempts: 0, maxAttempts: 3 });
+    expect(queuedStatus.body.payload).toBeUndefined();
+
+    await expect(processNextSbomIngestionJob()).resolves.toBe(true);
+    const completed = await request(app).get(queued.body.statusUrl).set("x-test-tenant", "tenant-a");
+    expect(completed.status).toBe(200);
+    expect(completed.body).toMatchObject({ status: "completed", attempts: 1, maxAttempts: 3 });
+    expect(completed.body.sbomId).toBeTruthy();
+    expect(completed.body.payload).toBeUndefined();
+    expect(await SbomRecord.countDocuments({ tenantId: "tenant-a", ingestionJobId: completed.body.jobId })).toBe(1);
 
     const otherTenant = await request(app).get(queued.body.statusUrl).set("x-test-tenant", "tenant-b");
     expect(otherTenant.status).toBe(404);
-    expect(await SbomRecord.countDocuments({ tenantId: "tenant-a" })).toBe(0);
     expect(await SbomIngestionJob.countDocuments({ tenantId: "tenant-a" })).toBe(1);
   });
 
