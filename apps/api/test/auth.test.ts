@@ -1,4 +1,5 @@
 import express from "express";
+import { rateLimit } from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,7 +9,7 @@ import { authenticate } from "../src/middleware/authenticate";
 import { authorize } from "../src/middleware/authorize";
 const secret = "unit-test-secret-that-is-long-enough-for-hmac";
 const app = express();
-app.get("/protected", authenticate, authorize("platform-admin"), (req, res) => res.json({ tenantId: req.auth!.tenantId }));
+app.get("/protected", rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }), authenticate, authorize("platform-admin"), (req, res) => res.json({ tenantId: req.auth!.tenantId }));
 function token(claims: Record<string, unknown> = {}) {
   return jwt.sign({ tenantId: "tenant-a", role: "platform-admin", ...claims }, secret, { subject: "user-1", issuer: "chainproof-api", audience: "chainproof-client", expiresIn: "5m" });
 }
