@@ -7,6 +7,7 @@ import { ArtifactVerification } from "../models/ArtifactVerification";
 import { ProvenanceVerificationError, verifyArtifactSignature, verifySlsaProvenance } from "../services/provenanceVerifier";
 
 export const trustRouter = Router();
+trustRouter.use(rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }));
 const verificationLimiter = rateLimit({
   windowMs: 60_000, limit: 5, standardHeaders: true, legacyHeaders: false,
   message: { error: "Provenance verification rate limit exceeded; retry shortly." }
