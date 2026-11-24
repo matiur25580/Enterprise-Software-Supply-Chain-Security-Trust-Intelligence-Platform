@@ -108,7 +108,7 @@ Express + TypeScript API
 Production automatic index creation is disabled. Run the explicit index provisioning command as a controlled deployment/migration step using an environment with database access and index-creation privileges:
 
 ```bash
-npm run db:indexes
+MONGODB_URI='mongodb://127.0.0.1:27017/chainproof' npm run db:indexes
 ```
 
 The command provisions declared user and SBOM indexes and exits non-zero if provisioning fails. Review index changes and database permissions before production rollout.
