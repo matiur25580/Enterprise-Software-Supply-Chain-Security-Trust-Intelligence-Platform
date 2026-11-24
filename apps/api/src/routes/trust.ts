@@ -13,7 +13,7 @@ const verificationLimiter = rateLimit({
 });
 const verificationInput = z.object({
   artifactBase64: z.string().min(4).max(1_400_000).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),
-  bundle: z.unknown()
+  bundle: z.record(z.unknown())
 }).strict();
 
 /** Verify a Cosign/Sigstore detached signature bundle against supplied artifact bytes. */
