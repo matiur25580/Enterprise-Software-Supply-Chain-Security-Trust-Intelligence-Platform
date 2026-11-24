@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
@@ -6,13 +7,22 @@ import { User } from "../models/User";
 
 export const authRouter = Router();
 
+// Slow repeated password guessing without revealing whether an account exists.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many sign-in attempts; try again later." }
+});
+
 const loginSchema = z.object({
   tenantId: z.string().min(1).max(120),
   email: z.string().email().max(254),
   password: z.string().min(1).max(200)
 }).strict();
 
-authRouter.post("/login", async (request, response) => {
+authRouter.post("/login", loginLimiter, async (request, response) => {
   const parsed = loginSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: "Invalid login input" });
