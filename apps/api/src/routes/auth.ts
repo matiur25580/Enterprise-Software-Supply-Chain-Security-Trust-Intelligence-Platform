@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { rateLimit } from "express-rate-limit";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -37,9 +38,8 @@ authRouter.post("/login", loginLimiter, async (request, response) => {
 
   try {
     const { tenantId, email, password } = parsed.data;
-    const user = await User.findOne({
-      tenantId, email: email.toLowerCase(), active: true
-    }).select("+passwordHash tenantId role email");
+    const loginFilter = mongoose.sanitizeFilter({ tenantId, email: email.toLowerCase(), active: true });
+    const user = await User.findOne(loginFilter).select("+passwordHash tenantId role email");
 
     const passwordMatches = user
       ? await bcrypt.compare(password, user.passwordHash)
