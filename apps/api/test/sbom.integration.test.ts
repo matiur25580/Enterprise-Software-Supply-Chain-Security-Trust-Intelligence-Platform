@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SbomRecord } from "../src/models/SbomRecord";
+import { SbomIngestionJob } from "../src/models/SbomIngestionJob";
 import { VulnerabilityScan } from "../src/models/VulnerabilityScan";
 const { osvQueryMock, enrichMock } = vi.hoisted(() => ({ osvQueryMock: vi.fn(), enrichMock: vi.fn() }));
 vi.mock("../src/services/osvClient", () => ({ OsvServiceError: class OsvServiceError extends Error {}, queryOsvByPurls: osvQueryMock }));
@@ -27,9 +28,10 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     await mongoose.connect(uri!, { serverSelectionTimeoutMS: 10000 });
     await mongoose.connection.dropDatabase();
     await SbomRecord.syncIndexes();
+    await SbomIngestionJob.syncIndexes();
   });
   beforeEach(async () => {
-    await Promise.all([SbomRecord.deleteMany({}), VulnerabilityScan.deleteMany({})]);
+    await Promise.all([SbomRecord.deleteMany({}), VulnerabilityScan.deleteMany({}), SbomIngestionJob.deleteMany({})]);
     osvQueryMock.mockResolvedValue([{ purl: "pkg:npm/express@4.21.2", vulnerabilities: [{ id: "GHSA-integration", aliases: ["CVE-2026-1111"], references: [], summary: "Synthetic integration advisory", severity: "high", cvssScore: 8.1 }] }]);
     enrichMock.mockResolvedValue(new Map([["GHSA-integration", { epssScore: 0.31, epssPercentile: 0.88, isKnownExploited: true }]]));
   });
@@ -88,6 +90,29 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     });
     const otherTenant = await request(app).get(`/api/sboms/${sbomId}/vulnerability-scans`).set("x-test-tenant", "tenant-b");
     expect(otherTenant.status).toBe(404);
+  });
+
+  it("queues a durable normalized SBOM job and exposes status only to its tenant", async () => {
+    const queued = await request(app).post("/api/sboms/document/async").set("x-test-tenant", "tenant-a").send({
+      source: "ci://pipeline/42",
+      document: {
+        bomFormat: "CycloneDX", specVersion: "1.6",
+        metadata: { component: { type: "application", name: "async-checkout", version: "1.2.0" } },
+        components: [{ type: "library", name: "express", version: "4.21.2", purl: "pkg:npm/express@4.21.2" }]
+      }
+    });
+    expect(queued.status, JSON.stringify(queued.body)).toBe(202);
+    expect(queued.body.status).toBe("queued");
+
+    const status = await request(app).get(queued.body.statusUrl).set("x-test-tenant", "tenant-a");
+    expect(status.status).toBe(200);
+    expect(status.body).toMatchObject({ status: "queued", attempts: 0, maxAttempts: 3 });
+    expect(status.body.payload).toBeUndefined();
+
+    const otherTenant = await request(app).get(queued.body.statusUrl).set("x-test-tenant", "tenant-b");
+    expect(otherTenant.status).toBe(404);
+    expect(await SbomRecord.countDocuments({ tenantId: "tenant-a" })).toBe(0);
+    expect(await SbomIngestionJob.countDocuments({ tenantId: "tenant-a" })).toBe(1);
   });
 
   it("enforces the tenant-scoped unique digest index", async () => {
