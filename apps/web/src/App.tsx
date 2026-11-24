@@ -6,6 +6,8 @@ type Health = { status: string; database: string; service: string };
 type Finding = { purl: string; id: string; summary?: string; aliases: string[]; severity: string; cvssScore?: number; epssScore?: number; epssPercentile?: number; isKnownExploited: boolean; references: string[] };
 type ScanResult = { status: string; scanId?: string; scannedAt?: string; scannedPackages: number; vulnerablePackages: number; findingCount: number; findings: Finding[] };
 type Verification = { _id: string; artifactDigest: string; verificationType: string; status: string; certificateIdentity?: string; builderId?: string; failureCode?: string; createdAt: string };
+type PolicyCheck = { id: string; status: "pass" | "warn" | "block"; message: string; evidence: Record<string, unknown> };
+type PolicyResult = { policyVersion: string; outcome: "pass" | "warn" | "block"; riskScore: number; checks: PolicyCheck[]; evaluatedAt: string; evaluationId: string; artifactDigest: string };
 const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function api<T>(path: string, token?: string, init: RequestInit = {}): Promise<T> {
@@ -30,6 +32,8 @@ export default function App() {
   const [latestScan, setLatestScan] = useState<ScanResult | null>(null);
   const [verificationHistory, setVerificationHistory] = useState<Verification[]>([]);
   const [selectedSbom, setSelectedSbom] = useState("");
+  const [artifactDigest, setArtifactDigest] = useState("");
+  const [policyResult, setPolicyResult] = useState<PolicyResult | null>(null);
   const [search, setSearch] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
   const [tenantId, setTenantId] = useState("");
@@ -111,6 +115,19 @@ export default function App() {
     finally { setBusy(false); }
   }
 
+  async function evaluateRelease() {
+    if (!token || !selectedSbom) { setNotice("Run an OSV scan first so a tenant-owned SBOM is selected."); return; }
+    setBusy(true); setNotice("");
+    try {
+      const result = await api<PolicyResult>("/api/policy/evaluate-release", token, {
+        method: "POST", body: JSON.stringify({ sbomId: selectedSbom, artifactDigest: artifactDigest.trim().toLowerCase() })
+      });
+      setPolicyResult(result);
+      setNotice(`Release policy ${result.outcome.toUpperCase()} · risk score ${result.riskScore}/100 · ${result.policyVersion}`);
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Release policy evaluation failed"); }
+    finally { setBusy(false); }
+  }
+
   async function exportCsv() {
     if (!token) return;
     try {
@@ -124,7 +141,7 @@ export default function App() {
     } catch (error) { setNotice(error instanceof Error ? error.message : "Export failed"); }
   }
 
-  function signOut() { setToken(""); setUser(null); setSboms([]); setLatestScan(null); setVerificationHistory([]); setNotice("Signed out."); }
+  function signOut() { setToken(""); setUser(null); setSboms([]); setLatestScan(null); setVerificationHistory([]); setPolicyResult(null); setSelectedSbom(""); setArtifactDigest(""); setNotice("Signed out."); }
 
   return <main className="shell">
     <aside className="sidebar">
@@ -196,9 +213,21 @@ export default function App() {
             <p className="scan-meta">History is restricted to the authenticated tenant. Artifact bytes and signature bundles are never displayed.</p>
           </article>
         </section>
+        <section className="panel policy-panel">
+          <div className="panel-head"><div><span className="eyebrow">RELEASE ASSURANCE</span><h3>Deterministic release policy</h3></div><span className="pill">chainproof-release-v1</span></div>
+          <p className="policy-intro">Combine the selected SBOM's latest vulnerability scan with verified SLSA provenance for the exact artifact digest. Missing evidence fails closed.</p>
+          <div className="policy-controls">
+            <label>Artifact SHA-256 digest<input value={artifactDigest} onChange={e=>setArtifactDigest(e.target.value.trim().toLowerCase())} maxLength={64} pattern="[a-f0-9]{64}" placeholder="64-character SHA-256 digest from verified artifact" /></label>
+            <button className="primary" disabled={busy || !selectedSbom || !/^[a-f0-9]{64}$/.test(artifactDigest)} onClick={evaluateRelease}>{busy ? "Evaluating…" : "Evaluate release"}</button>
+          </div>
+          {policyResult ? <div className="policy-result">
+            <div className="policy-score"><span className={"audit-status " + policyResult.outcome}>{policyResult.outcome}</span><strong>{policyResult.riskScore}<small>/100</small></strong><small>Maximum severity score · {new Date(policyResult.evaluatedAt).toLocaleString()}</small></div>
+            <div className="policy-checks">{policyResult.checks.map((check,index)=><div className="policy-check" key={check.id + index}><span className={"audit-status " + check.status}>{check.status}</span><div><strong>{check.id}</strong><small>{check.message}</small></div></div>)}</div>
+          </div> : <div className="empty"><strong>No release decision yet</strong><p>First upload an SBOM, run an OSV scan, verify its release artifact's SLSA provenance, then enter the exact artifact SHA-256 digest.</p></div>}
+        </section>
       </>}
       {notice && <div className="notice" role="status">{notice}</div>}
-      <footer>CHAINPROOF · SECURITY OPERATIONS <span>OSV, CISA KEV, EPSS and Sigstore evidence · tenant-scoped</span></footer>
+      <footer>CHAINPROOF · SECURITY OPERATIONS <span>OSV · Sigstore · deterministic release policy · tenant-scoped</span></footer>
     </section>
   </main>;
 }
