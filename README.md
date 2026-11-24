@@ -16,7 +16,7 @@
 
 ChainProof is a security engineering portfolio project exploring how organizations can make software supply-chain risk more visible, attributable and actionable. Its product direction brings together SBOM inventory, artifact integrity, build provenance, vulnerability context and policy-based release assurance.
 
-The current runnable milestone provides tenant-aware authentication, SBOM metadata inventory, bounded CycloneDX/SPDX JSON document ingestion and normalization, on-demand OSV vulnerability lookup, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It does **not** yet query vulnerability feeds, verify artifact signatures or make production release decisions.
+The current runnable milestone provides tenant-aware authentication, SBOM metadata inventory, bounded CycloneDX/SPDX JSON document ingestion and normalization, on-demand OSV vulnerability lookup with persisted scan history and CVSS/CISA KEV/FIRST EPSS context, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It does **not** yet query vulnerability feeds, verify artifact signatures or make production release decisions.
 
 **Project status:** active engineering foundation / demonstrable MVP. The screenshots in this README are illustrative dashboard concepts made with synthetic data; they are not captures of a live production system.
 
@@ -43,7 +43,8 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 - **Inventory discovery:** search by document name and filter by SBOM format.
 - **Controlled export:** tenant-scoped CSV export with quoting and spreadsheet-formula injection protection.
 - **Integrity metadata:** duplicate SHA-256 digest prevention within a tenant.
-- **OSV vulnerability lookup:** on-demand batch lookup for up to 100 unique package URLs from a tenant-owned SBOM, with advisory IDs, aliases, summaries and safe HTTPS references.
+- **Vulnerability intelligence:** on-demand OSV batch lookup for up to 100 unique package URLs; persist tenant-scoped scan snapshots with CVSS/severity metadata and optional CISA KEV/FIRST EPSS enrichment for CVE aliases.
+- **Scan history:** retrieve the latest 20 vulnerability scan snapshots for a tenant-owned SBOM.
 - **Abuse controls:** bounded request payloads and rate-limited intake/login endpoints.
 - **Operational health:** API health and database-aware readiness endpoints.
 - **Container foundation:** multi-stage Docker build, non-root runtime and Compose-managed MongoDB.
@@ -54,7 +55,7 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 
 - Full upstream CycloneDX/SPDX JSON Schema validation, relationship/graph preservation and robust package identity reconciliation.
 - Package URL (purl) identity resolution and component relationship graphs.
-- Additional vulnerability intelligence from NVD, EPSS and CISA KEV, with deployment-aware exploitability context.
+- NVD enrichment, deployment-aware exploitability context and policy-based prioritization of persisted findings.
 - Artifact digest verification and Sigstore/Cosign signature validation.
 - SLSA-aligned build provenance and trusted-builder policy.
 - Policy-as-code with versioned controls, explainable decisions and signed release attestations.
@@ -114,7 +115,7 @@ Production automatic index creation is disabled. Run the explicit index provisio
 MONGODB_URI='mongodb://127.0.0.1:27017/chainproof' npm run db:indexes
 ```
 
-The command provisions declared user and SBOM indexes and exits non-zero if provisioning fails. Review index changes and database permissions before production rollout.
+The command provisions declared user, SBOM and vulnerability scan indexes and exits non-zero if provisioning fails. Review index changes and database permissions before production rollout.
 
 ## 6. Quick start
 
@@ -175,7 +176,7 @@ curl -X POST http://localhost:4000/api/sboms/<sbom-record-id>/vulnerabilities \
   -H 'Authorization: Bearer <access-token>'
 ```
 
-The endpoint checks up to 100 unique PURLs using the public OSV batch API. It only sends package URLs—not raw SBOM documents, tenant identifiers or source repository metadata. Results are returned to the caller and are not persisted in this milestone. Requests are tenant-scoped and rate-limited; an SBOM with no PURLs returns an empty result. OSV availability is an external dependency, and upstream errors are surfaced rather than represented as a clean scan.
+The endpoint checks up to 100 unique PURLs using the public OSV batch API. It only sends package URLs—not raw SBOM documents, tenant identifiers or source repository metadata. Each successful scan is persisted as a tenant-scoped snapshot; the latest 20 are available from `GET /api/sboms/<sbom-record-id>/vulnerability-scans`. CVSS vector/severity data is retained when OSV supplies it. CVE aliases are optionally enriched from CISA KEV and FIRST EPSS; enrichment failure does not invalidate the OSV scan, and missing values remain unknown. Requests are tenant-scoped and rate-limited; an SBOM with no PURLs returns an empty result. OSV availability is an external dependency, and upstream errors are surfaced rather than represented as a clean scan.
 
 ### Ingest a CycloneDX or SPDX JSON document
 
