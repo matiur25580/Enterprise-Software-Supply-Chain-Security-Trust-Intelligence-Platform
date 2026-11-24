@@ -45,6 +45,8 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 - **Integrity metadata:** duplicate SHA-256 digest prevention within a tenant.
 - **Vulnerability intelligence:** on-demand OSV batch lookup for up to 100 unique package URLs; persist tenant-scoped scan snapshots with CVSS/severity metadata and optional CISA KEV/FIRST EPSS enrichment for CVE aliases.
 - **Scan history:** retrieve the latest 20 vulnerability scan snapshots for a tenant-owned SBOM.
+- **Sigstore provenance verification:** verify a signed in-toto SLSA provenance v1 DSSE bundle against the actual artifact bytes, configured certificate issuer/identity and an explicit builder allowlist.
+- **Trust audit history:** persist successful and rejected verification outcomes with artifact digest, signer policy, builder identity and source revision metadata; submitted artifact and bundle bytes are not retained.
 - **Abuse controls:** bounded request payloads and rate-limited intake/login endpoints.
 - **Operational health:** API health and database-aware readiness endpoints.
 - **Container foundation:** multi-stage Docker build, non-root runtime and Compose-managed MongoDB.
@@ -56,8 +58,8 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 - Full upstream CycloneDX/SPDX JSON Schema validation, relationship/graph preservation and robust package identity reconciliation.
 - Package URL (purl) identity resolution and component relationship graphs.
 - NVD enrichment, deployment-aware exploitability context and policy-based prioritization of persisted findings.
-- Artifact digest verification and Sigstore/Cosign signature validation.
-- SLSA-aligned build provenance and trusted-builder policy.
+- OCI image signature verification and registry-aware Cosign verification.
+- Full SLSA build-level policy evaluation, source-control protections and deployment-aware release gates.
 - Policy-as-code with versioned controls, explainable decisions and signed release attestations.
 - Risk exceptions with owners, expiry, compensating controls and approval history.
 - Evidence retention, audit export, alerting and integrations with GitHub and CI/CD systems.
@@ -79,7 +81,7 @@ Express + TypeScript API
           |
           v
        MongoDB
-  users / SBOM metadata
+  users / SBOMs / vulnerability scans / trust audit
 ```
 
 ### Technology stack
@@ -104,6 +106,9 @@ Express + TypeScript API
 - CSV export quotes fields and neutralizes spreadsheet formula prefixes.
 - Document ingestion accepts JSON request bodies up to the API's 2 MiB limit; the server computes a digest from the parsed JSON serialization. It is not a byte-for-byte original upload hash and does not establish artifact authenticity.
 - The parser performs strict structural checks for supported format/version fields and normalizes a bounded component subset; it is not a complete official CycloneDX/SPDX JSON Schema validator. Raw SBOM documents are not retained.
+- Sigstore verification uses server-configured certificate issuer and exact certificate identity; SLSA builder IDs must match a server-side allowlist. Requests cannot weaken or replace these trust policies.
+- Artifact verification accepts at most 1 MiB of base64-encoded artifact bytes and a bounded Sigstore bundle. It computes SHA-256 over the supplied bytes and checks the signed SLSA statement subject against that digest.
+- Verification stores the artifact digest and result metadata only; it does not persist artifact bytes or the submitted Sigstore bundle. Rejected attempts are also recorded with a stable failure code.
 - Uploaded artifacts, repositories and build scripts must never be executed inside the API process.
 - Secrets belong in a secret manager or local ignored environment file, never in source control.
 
@@ -115,7 +120,7 @@ Production automatic index creation is disabled. Run the explicit index provisio
 MONGODB_URI='mongodb://127.0.0.1:27017/chainproof' npm run db:indexes
 ```
 
-The command provisions declared user, SBOM and vulnerability scan indexes and exits non-zero if provisioning fails. Review index changes and database permissions before production rollout.
+The command provisions declared user, SBOM, vulnerability scan and artifact verification indexes and exits non-zero if provisioning fails. Review index changes and database permissions before production rollout.
 
 ## 6. Quick start
 
@@ -191,6 +196,32 @@ curl -X POST http://localhost:4000/api/sboms/document \
 
 The endpoint expects an envelope: `{"document": { ...SBOM JSON... }, "source": "optional-origin"}`. It supports CycloneDX 1.4, 1.5 and 1.6, plus SPDX 2.3 JSON. Successful ingestion stores a server-computed JSON-serialization digest and normalized component summary; it does not store the raw document. Invalid structures return HTTP 400 and a tenant-local duplicate digest returns HTTP 409.
 
+
+### Verify signed SLSA provenance
+
+The API verifies a Sigstore DSSE bundle containing an in-toto Statement v1 with the SLSA provenance v1 predicate. The signed statement must name the supplied artifact's SHA-256 digest as a subject, and its builder ID must be in the server's explicit allowlist.
+
+Configure these values in the deployment secret/environment configuration before enabling the endpoint:
+
+- `SIGSTORE_CERTIFICATE_ISSUER`: expected OIDC issuer (for example, GitHub Actions).
+- `SIGSTORE_CERTIFICATE_IDENTITY`: exact certificate identity expected to sign the bundle (for example, the approved workflow identity).
+- `SLSA_ALLOWED_BUILDERS`: comma-separated exact builder IDs allowed by this deployment. Keep this list narrow and review changes.
+
+If any policy setting is missing, verification fails closed with HTTP 503. Signature/policy/provenance failures return HTTP 422 and create a tenant-scoped rejected audit record. Successful verification returns HTTP 200 and creates a verified record.
+
+Example request (the bundle file must be a Sigstore DSSE attestation bundle, not a plain detached signature):
+
+```bash
+jq -n --arg artifactBase64 "$(base64 -w0 release.tar.gz)" \
+  --slurpfile bundle provenance.sigstore.json \
+  '{artifactBase64: $artifactBase64, bundle: $bundle[0]}' \
+  | curl -X POST http://localhost:4000/api/trust/verify-slsa-provenance \
+      -H 'Authorization: Bearer <access-token>' \
+      -H 'Content-Type: application/json' --data-binary @-
+```
+
+The latest verification audit records are available from `GET /api/trust/verifications`; results are always scoped to the authenticated tenant. The service does not store artifact bytes or the submitted bundle. The verifier checks the Sigstore certificate identity/issuer policy and signed SLSA subject digest; it does not yet enforce every SLSA build requirement or act as an automated release gate.
+
 ## 7. Environment configuration
 
 | Variable | Purpose | Example / requirement |
@@ -200,7 +231,7 @@ The endpoint expects an envelope: `{"document": { ...SBOM JSON... }, "source": "
 | `HOST` | API bind interface | `0.0.0.0` in containers |
 | `CORS_ORIGIN` | Allowed browser origin(s) | `http://localhost:5173` |
 | `NODE_ENV` | Runtime mode | `development` or `production` |
-| `JWT_SECRET` | JWT signing secret | Random secret, minimum 32 characters |
+| `JWT_SECRET` | JWT signing secret | Random secret, minimum 32 characters |\n| `SIGSTORE_CERTIFICATE_ISSUER` | Required OIDC issuer for keyless verification | Exact issuer URL |\n| `SIGSTORE_CERTIFICATE_IDENTITY` | Required signer certificate identity | Exact workflow or signer identity |\n| `SLSA_ALLOWED_BUILDERS` | Allowed SLSA builder IDs | Comma-separated exact builder IDs |
 
 Never use the example JWT value outside local setup. Production should use managed secrets, TLS, authenticated MongoDB, network restrictions, backups and monitored operations.
 
