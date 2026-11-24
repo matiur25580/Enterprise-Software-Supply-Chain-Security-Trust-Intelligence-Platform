@@ -366,62 +366,62 @@ The following twelve images are **illustrative UI concepts** created for product
 ### 01 — Supply chain command center
 A concise executive view of component exposure, SBOM coverage and release assurance signals. The intended landing page helps engineering leaders understand where attention is needed without hiding the underlying evidence.
 
-![Illustrative ChainProof dashboard — supply chain command center](docs/assets/dashboard/01-software-supply-chain-command-center.svg)
+![Illustrative ChainProof dashboard — supply chain command center](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/01-software-supply-chain-command-center.svg)
 
 ### 02 — SBOM inventory explorer
 A searchable inventory concept for CycloneDX and SPDX documents, versions, component counts and provenance references. The MVP accepts bounded JSON SBOM documents and stores normalized component summaries, with search, filtering and CSV export. It does not retain raw files or preserve the complete dependency graph.
 
-![Illustrative ChainProof dashboard — SBOM inventory explorer](docs/assets/dashboard/02-sbom-inventory-explorer.svg)
+![Illustrative ChainProof dashboard — SBOM inventory explorer](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/02-sbom-inventory-explorer.svg)
 
 ### 03 — Vulnerability intelligence
 A future triage workspace for advisory severity, exploitability, affected dependency paths and remediation ownership. A mature implementation should enrich findings with trusted sources and deployment context rather than rank solely by CVSS.
 
-![Illustrative ChainProof dashboard — vulnerability intelligence](docs/assets/dashboard/03-vulnerability-intelligence.svg)
+![Illustrative ChainProof dashboard — vulnerability intelligence](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/03-vulnerability-intelligence.svg)
 
 ### 04 — Build provenance verification
 A proposed verification view for artifact digests, builder identity, signed attestations and source-to-binary traceability. The MVP verifies detached Cosign/Sigstore signatures and signed SLSA provenance v1 bundles against supplied artifact bytes and configured signer/builder policies. Full SLSA conformance and registry-aware OCI verification remain roadmap work.
 
-![Illustrative ChainProof dashboard — build provenance verification](docs/assets/dashboard/04-provenance-verification.svg)
+![Illustrative ChainProof dashboard — build provenance verification](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/04-provenance-verification.svg)
 
 ### 05 — Release trust passport
 A release-level evidence summary that brings together inventory, provenance, vulnerability context and policy outcomes. Its purpose is to make release readiness reviewable and reproducible.
 
-![Illustrative ChainProof dashboard — release trust passport](docs/assets/dashboard/05-release-trust-passport.svg)
+![Illustrative ChainProof dashboard — release trust passport](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/05-release-trust-passport.svg)
 
 ### 06 — Policy-as-code workbench
 A concept for versioned security controls, evaluation history and explainable pass/warn/block decisions. Future policy results should retain the policy version and evidence references used at evaluation time.
 
-![Illustrative ChainProof dashboard — policy-as-code workbench](docs/assets/dashboard/06-policy-as-code-workbench.svg)
+![Illustrative ChainProof dashboard — policy-as-code workbench](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/06-policy-as-code-workbench.svg)
 
 ### 07 — Dependency risk graph
 A dependency relationship view to highlight transitive exposure, critical packages and ownership gaps. A production graph should preserve package identity and source provenance across ecosystems.
 
-![Illustrative ChainProof dashboard — dependency risk graph](docs/assets/dashboard/07-dependency-risk-graph.svg)
+![Illustrative ChainProof dashboard — dependency risk graph](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/07-dependency-risk-graph.svg)
 
 ### 08 — Supplier risk workspace
 A governance view for supplier criticality, component ownership, exception status and remediation commitments. It is designed to connect technical findings with procurement and third-party risk processes.
 
-![Illustrative ChainProof dashboard — supplier risk workspace](docs/assets/dashboard/08-supplier-risk-workspace.svg)
+![Illustrative ChainProof dashboard — supplier risk workspace](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/08-supplier-risk-workspace.svg)
 
 ### 09 — Artifact integrity monitor
 A proposed monitor for digest changes, signature verification outcomes and artifact lineage. In the current milestone, digest values are recorded as metadata and are not checked against uploaded artifacts.
 
-![Illustrative ChainProof dashboard — artifact integrity monitor](docs/assets/dashboard/09-artifact-integrity-monitor.svg)
+![Illustrative ChainProof dashboard — artifact integrity monitor](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/09-artifact-integrity-monitor.svg)
 
 ### 10 — Security exception governance
 A controlled exception workflow with accountable approvers, expiry dates, compensating controls and review status. The design emphasizes time-bounded exceptions instead of permanent policy bypasses.
 
-![Illustrative ChainProof dashboard — security exception governance](docs/assets/dashboard/10-security-exception-governance.svg)
+![Illustrative ChainProof dashboard — security exception governance](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/10-security-exception-governance.svg)
 
 ### 11 — Incident evidence timeline
 A chronological workspace for correlated alerts, investigation notes, affected releases and evidence references. The goal is to make incident context traceable without treating AI-generated summaries as authoritative evidence.
 
-![Illustrative ChainProof dashboard — incident evidence timeline](docs/assets/dashboard/11-incident-evidence-timeline.svg)
+![Illustrative ChainProof dashboard — incident evidence timeline](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/11-incident-evidence-timeline.svg)
 
 ### 12 — Compliance assurance report
 An audit-oriented view of control coverage, evidence freshness, exceptions and release signals. Future exports should be reproducible and include source references, timestamps and policy versions.
 
-![Illustrative ChainProof dashboard — compliance assurance report](docs/assets/dashboard/12-compliance-assurance-report.svg)
+![Illustrative ChainProof dashboard — compliance assurance report](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/12-compliance-assurance-report.svg)
 
 
 ## Signed Release Trust Passport
