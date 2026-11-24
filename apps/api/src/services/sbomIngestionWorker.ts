@@ -57,9 +57,11 @@ export async function processNextSbomIngestionJob(now = new Date()): Promise<boo
     );
     return true;
   } catch (error) {
-    const message = error instanceof Error ? error.message.slice(0, 500) : "Unknown ingestion failure";
     const duplicateDigest = typeof error === "object" && error !== null && "code" in error && error.code === 11000;
     const terminal = job.attempts >= job.maxAttempts || duplicateDigest;
+    const message = duplicateDigest
+      ? "An SBOM with this digest already exists in this tenant."
+      : terminal ? "SBOM persistence failed after the maximum retry count." : "SBOM persistence failed; retry scheduled.";
     const delayMs = Math.min(30_000, 1_000 * (2 ** Math.max(0, job.attempts - 1)));
     await SbomIngestionJob.updateOne(
       { _id: job._id, workerId },
