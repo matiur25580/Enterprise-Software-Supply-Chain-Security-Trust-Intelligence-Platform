@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
+const intakeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "SBOM intake rate limit exceeded; retry shortly." } });
 import { z } from "zod";
 import { SbomRecord } from "../models/SbomRecord";
 export const sbomRouter = Router();
@@ -39,7 +41,7 @@ sbomRouter.get("/", async (request, response) => {
     response.status(200).json({ items: records, count: records.length, limit });
   } catch { response.status(500).json({ error: "Unable to load SBOM inventory" }); }
 });
-sbomRouter.post("/", async (request, response) => {
+sbomRouter.post("/", intakeLimiter, async (request, response) => {
   const parsed = sbomInputSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: "SBOM metadata failed validation", details: parsed.error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })) });
