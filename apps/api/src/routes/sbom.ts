@@ -22,10 +22,6 @@ const sbomInputSchema = z.object({
   source: z.string().max(500).optional(),
   documentDigest: z.string().regex(/^[a-f0-9]{64}$/i).optional()
 }).strict();
-function escapeRegex(value: string): string {
-  const special = new Set([".", "*", "+", "?", "^", "$", "{", "}", "(", ")", "|", "[", "]", "\\"]);
-  return [...value].map((character) => special.has(character) ? `\\${character}` : character).join("");
-}
 function csvCell(value: unknown): string {
   const raw = value == null ? "" : String(value);
   // Prevent spreadsheet formula execution when a CSV is opened in office tools.
@@ -48,9 +44,13 @@ sbomRouter.get("/", sbomReadLimiter, authorize("platform-admin", "security-analy
     const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
     const filter: Record<string, unknown> = { tenantId: request.auth!.tenantId };
     if (request.query.format === "cyclonedx" || request.query.format === "spdx") filter.format = request.query.format;
-    if (typeof request.query.q === "string" && request.query.q.trim()) filter.documentName = { $regex: escapeRegex(request.query.q.trim().slice(0, 80)), $options: "i" };
-    const records = await SbomRecord.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
-    response.status(200).json({ items: records, count: records.length, limit });
+    // Search is applied in memory to a bounded tenant-scoped result set, never interpolated into MongoDB operators.
+    const records = await SbomRecord.find(filter).sort({ createdAt: -1 }).limit(5000).lean();
+    const searchTerm = typeof request.query.q === "string" ? request.query.q.trim().slice(0, 80).toLowerCase() : "";
+    const filtered = searchTerm
+      ? records.filter((record: any) => String(record.documentName ?? "").toLowerCase().includes(searchTerm)).slice(0, limit)
+      : records.slice(0, limit);
+    response.status(200).json({ items: filtered, count: filtered.length, limit });
   } catch { response.status(500).json({ error: "Unable to load SBOM inventory" }); }
 });
 
