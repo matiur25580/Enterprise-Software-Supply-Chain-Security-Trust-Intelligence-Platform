@@ -41,7 +41,7 @@ signerRouter.post("/release-signers/rotate", limiter, authorize("platform-admin"
   try {
     const { keyId, publicKey } = configuredSigner();
     const tenantId = request.auth!.tenantId;
-    const current = await ReleasePassportSigner.findOne({ tenantId, status: "active" }).sort({ activatedAt: -1 }).lean();
+    const current: any = await ReleasePassportSigner.findOne({ tenantId, status: "active" }).sort({ activatedAt: -1 }).lean();
     if (current?.keyId === keyId) {
       response.status(409).json({ error: "The configured signing key is already active", keyId });
       return;
