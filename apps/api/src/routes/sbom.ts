@@ -15,10 +15,14 @@ const sbomInputSchema = z.object({
 
 // Listing is always constrained by the tenant established by JWT middleware.
 sbomRouter.get("/", async (request, response) => {
-  const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
-  const records = await SbomRecord.find({ tenantId: request.auth!.tenantId })
-    .sort({ createdAt: -1 }).limit(limit).lean();
-  response.status(200).json({ items: records });
+  try {
+    const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
+    const records = await SbomRecord.find({ tenantId: request.auth!.tenantId })
+      .sort({ createdAt: -1 }).limit(limit).lean();
+    response.status(200).json({ items: records });
+  } catch {
+    response.status(500).json({ error: "Unable to load SBOM inventory" });
+  }
 });
 
 // Persist only validated metadata; the actual SBOM file parser is a later milestone.
@@ -35,15 +39,18 @@ sbomRouter.post("/", async (request, response) => {
     return;
   }
 
-  const record = await SbomRecord.create({
-    ...parsed.data,
-    tenantId: request.auth!.tenantId,
-    ingestionStatus: "received"
-  });
-
-  response.status(201).json({
-    status: "metadata-recorded",
-    message: "SBOM metadata stored. Document parsing and security analysis are not enabled yet.",
-    item: record
-  });
+  try {
+    const record = await SbomRecord.create({
+      ...parsed.data,
+      tenantId: request.auth!.tenantId,
+      ingestionStatus: "received"
+    });
+    response.status(201).json({
+      status: "metadata-recorded",
+      message: "SBOM metadata stored. Document parsing and security analysis are not enabled yet.",
+      item: record
+    });
+  } catch {
+    response.status(500).json({ error: "Unable to save SBOM metadata" });
+  }
 });
