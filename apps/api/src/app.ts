@@ -1,38 +1,45 @@
 import cors from "cors";
-import express, { type ErrorRequestHandler, type Express } from "express";
+import express from "express";
 import helmet from "helmet";
-import { pinoHttp } from "pino-http";
-import { env } from "./config/env.js";
-import { logger } from "./lib/logger.js";
+import fs from "node:fs";
+import path from "node:path";
+import { authenticate } from "./middleware/authenticate";
+import { authRouter } from "./routes/auth";
+import { healthRouter } from "./routes/health";
+import { sbomRouter } from "./routes/sbom";
+import { trustRouter } from "./routes/trust";
+import { policyRouter } from "./routes/policy";
 
-export const app: Express = express();
+export const app = express();
+
 app.disable("x-powered-by");
 app.use(helmet());
-app.use(cors({
-  origin: env.WEB_ORIGIN,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-}));
-app.use(express.json({ limit: "1mb", strict: true }));
-app.use(pinoHttp({ logger }));
+app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") ?? false }));
+app.use(express.json({ limit: "2mb", strict: true }));
 
-app.get("/api/v1/health", (_request, response) => {
-  response.status(200).json({
-    status: "ok",
-    service: "chainproof-api",
-    timestamp: new Date().toISOString()
-  });
+app.use("/api/health", healthRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/sboms", authenticate, sbomRouter);
+app.use("/api/trust", authenticate, trustRouter);
+app.use("/api/policy", authenticate, policyRouter);
+
+// Serve the compiled Vite application when a web build is present.
+const webDist = path.resolve(process.cwd(), "apps/web/dist");
+if (fs.existsSync(webDist)) {
+  app.use(express.static(webDist));
+  app.get("/", (_request, response) => response.sendFile(path.join(webDist, "index.html")));
+} else {
+  app.get("/", (_request, response) => response.status(200).json({
+    name: "ChainProof API",
+    status: "foundation",
+    message: "Build the web workspace with npm run build:web to serve the dashboard."
+  }));
+}
+
+app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+  if (error instanceof SyntaxError) {
+    response.status(400).json({ error: "Invalid JSON request body" });
+    return;
+  }
+  response.status(500).json({ error: "Internal server error" });
 });
-
-app.use((_request, response) => {
-  response.status(404).json({ error: { code: "NOT_FOUND", message: "The requested resource was not found." } });
-});
-
-const errorHandler: ErrorRequestHandler = (error: unknown, _request, response, _next) => {
-  logger.error({ err: error }, "Unhandled request error");
-  if (response.headersSent) return;
-  response.status(500).json({
-    error: { code: "INTERNAL_SERVER_ERROR", message: "An unexpected error occurred." }
-  });
-};
-app.use(errorHandler);

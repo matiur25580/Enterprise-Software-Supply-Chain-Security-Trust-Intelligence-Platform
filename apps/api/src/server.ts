@@ -1,20 +1,24 @@
-import { app } from "./app.js";
-import { env } from "./config/env.js";
-import { logger } from "./lib/logger.js";
+import { app } from "./app";
+import { connectDatabase } from "./config/database";
 
-const server = app.listen(env.API_PORT, env.API_HOST, () => {
-  logger.info({ host: env.API_HOST, port: env.API_PORT }, "ChainProof API listening");
-});
+const port = Number(process.env.PORT ?? 4000);
+const host = process.env.HOST ?? "0.0.0.0";
 
-const shutdown = (signal: NodeJS.Signals) => {
-  logger.info({ signal }, "Shutdown signal received");
-  server.close((error) => {
-    if (error) {
-      logger.error({ err: error }, "HTTP server shutdown failed");
-      process.exitCode = 1;
-    }
-    process.exit();
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("PORT must be an integer between 1 and 65535");
+}
+
+async function start(): Promise<void> {
+  // A missing URI keeps documentation/demo workflows runnable without a DB.
+  // If a URI is supplied but the database is unavailable, fail closed instead
+  // of starting an API that operators may assume is fully connected.
+  await connectDatabase();
+  app.listen(port, host, () => {
+    console.info(`ChainProof API listening on ${host}:${port}`);
   });
-};
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+}
+
+void start().catch((error: unknown) => {
+  console.error("ChainProof API startup failed:", error instanceof Error ? error.message : "unknown error");
+  process.exitCode = 1;
+});
