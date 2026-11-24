@@ -75,8 +75,12 @@ const passportInput = z.object({ evaluationId: z.string().regex(/^[a-f0-9]{24}$/
 /** Issue a portable, signed evidence envelope for a persisted release-policy evaluation. */
 policyRouter.post("/release-passports", authorize("platform-admin", "security-analyst", "developer"), async (request, response) => {
   const parsed = passportInput.safeParse(request.body);
-  if (!parsed.success || !isValidObjectId(parsed.data?.evaluationId ?? "")) {
+  if (!parsed.success) {
     response.status(400).json({ error: "Release passport input is invalid" });
+    return;
+  }
+  if (!isValidObjectId(parsed.data.evaluationId)) {
+    response.status(400).json({ error: "Invalid policy evaluation identifier" });
     return;
   }
   const privateKeyPem = process.env.RELEASE_PASSPORT_PRIVATE_KEY?.replace(/\\n/g, "\n").trim();
