@@ -23,7 +23,9 @@ export default function App() {
   const [token, setToken] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
-  const [sboms, setSboms] = useState<Sbom[]>([]);\n  const [search, setSearch] = useState("");\n  const [formatFilter, setFormatFilter] = useState("");
+  const [sboms, setSboms] = useState<Sbom[]>([]);
+  const [search, setSearch] = useState("");
+  const [formatFilter, setFormatFilter] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -116,7 +118,8 @@ export default function App() {
               <label>Document name<input required maxLength={200} value={form.documentName} onChange={e=>setForm({...form,documentName:e.target.value})} placeholder="payments-service" /></label>
               <div className="two-col"><label>Format<select value={form.format} onChange={e=>setForm({...form,format:e.target.value})}><option value="cyclonedx">CycloneDX</option><option value="spdx">SPDX</option></select></label><label>Format version<input required value={form.formatVersion} onChange={e=>setForm({...form,formatVersion:e.target.value})} /></label></div>
               <div className="two-col"><label>Document version<input value={form.documentVersion} onChange={e=>setForm({...form,documentVersion:e.target.value})} placeholder="1.0.0" /></label><label>Component count<input type="number" min="0" max="1000000" value={form.componentCount} onChange={e=>setForm({...form,componentCount:e.target.value})} /></label></div>
-              <label>SHA-256 digest (optional)<input value={form.documentDigest} onChange={e=>setForm({...form,documentDigest:e.target.value.trim().toLowerCase()})} pattern="[a-fA-F0-9]{64}" maxLength={64} placeholder="64-character SHA-256 hex digest" /></label>\n              <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save metadata"} <span>＋</span></button>
+              <label>SHA-256 digest (optional)<input value={form.documentDigest} onChange={e=>setForm({...form,documentDigest:e.target.value.trim().toLowerCase()})} pattern="[a-fA-F0-9]{64}" maxLength={64} placeholder="64-character SHA-256 hex digest" /></label>
+              <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save metadata"} <span>＋</span></button>
             </form>
           </article>
           <article className="panel"><div className="panel-head"><div><span className="eyebrow">RECENT ACTIVITY</span><h3>SBOM inventory</h3></div><div className="inventory-actions"><button className="ghost" onClick={()=>refresh(token, search, formatFilter)}>Search ↻</button><button className="ghost" onClick={exportCsv}>Export CSV ↓</button></div></div>
