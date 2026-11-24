@@ -86,6 +86,8 @@ Express + TypeScript API
   users / SBOMs / vulnerability scans / trust audit / policy evaluations / signed release passports
 ```
 
+For the detailed component view, evidence lifecycle, offline passport trust decisions and command-line examples, see the [System Architecture and Trust Flows](docs/architecture/SYSTEM-ARCHITECTURE.md) guide.
+
 ### Technology stack
 
 | Layer | Technology |
