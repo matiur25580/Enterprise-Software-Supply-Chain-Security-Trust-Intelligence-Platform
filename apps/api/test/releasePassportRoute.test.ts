@@ -8,12 +8,14 @@ vi.mock("../src/models/SbomRecord", () => ({ SbomRecord: { findOne: vi.fn() } })
 vi.mock("../src/models/VulnerabilityScan", () => ({ VulnerabilityScan: { findOne: vi.fn() } }));
 vi.mock("../src/models/ArtifactVerification", () => ({ ArtifactVerification: { findOne: vi.fn() } }));
 vi.mock("../src/models/ReleaseTrustPassport", () => ({ ReleaseTrustPassport: { create: vi.fn(), findOne: vi.fn(), find: vi.fn() } }));
+vi.mock("../src/models/ReleasePassportSigner", () => ({ ReleasePassportSigner: { findOne: vi.fn() } }));
 
 import { PolicyEvaluation } from "../src/models/PolicyEvaluation";
 import { SbomRecord } from "../src/models/SbomRecord";
 import { VulnerabilityScan } from "../src/models/VulnerabilityScan";
 import { ArtifactVerification } from "../src/models/ArtifactVerification";
 import { ReleaseTrustPassport } from "../src/models/ReleaseTrustPassport";
+import { ReleasePassportSigner } from "../src/models/ReleasePassportSigner";
 import { policyRouter } from "../src/routes/policy";
 
 const app = express();
@@ -42,6 +44,7 @@ describe("release trust passport API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.RELEASE_PASSPORT_PRIVATE_KEY = privatePem;
+    vi.mocked(ReleasePassportSigner.findOne).mockReturnValue(query({ status: "active" }) as never);
   });
 
   it("issues and persists a tenant-scoped signed evidence passport", async () => {
