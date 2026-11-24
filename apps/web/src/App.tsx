@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 type User = { id: string; tenantId: string; email: string; role: string };
-type Sbom = { _id: string; format: "cyclonedx" | "spdx"; formatVersion: string; documentName: string; documentVersion?: string; componentCount: number; ingestionStatus: string; createdAt: string };
+type Sbom = { _id: string; format: "cyclonedx" | "spdx"; formatVersion: string; documentName: string; documentVersion?: string; componentCount: number; documentDigest?: string; ingestionStatus: string; createdAt: string };
 type Health = { status: string; database: string; service: string };
 const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -23,13 +23,13 @@ export default function App() {
   const [token, setToken] = useState("");
   const [user, setUser] = useState<User | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
-  const [sboms, setSboms] = useState<Sbom[]>([]);
+  const [sboms, setSboms] = useState<Sbom[]>([]);\n  const [search, setSearch] = useState("");\n  const [formatFilter, setFormatFilter] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ format: "cyclonedx", formatVersion: "1.6", documentName: "", documentVersion: "", componentCount: "0" });
+  const [form, setForm] = useState({ format: "cyclonedx", formatVersion: "1.6", documentName: "", documentVersion: "", componentCount: "0", documentDigest: "" });
 
   const refresh = useCallback(async (accessToken: string) => {
     const [h, list] = await Promise.all([
@@ -65,11 +65,24 @@ export default function App() {
     try {
       const payload = { ...form, componentCount: Number(form.componentCount) };
       await api("/api/sboms", token, { method: "POST", body: JSON.stringify(payload) });
-      setForm({ format: "cyclonedx", formatVersion: "1.6", documentName: "", documentVersion: "", componentCount: "0" });
+      setForm({ format: "cyclonedx", formatVersion: "1.6", documentName: "", documentVersion: "", componentCount: "0", documentDigest: "" });
       await refresh(token);
       setNotice("SBOM metadata saved to your tenant inventory. File parsing is not enabled yet.");
     } catch (error) { setNotice(error instanceof Error ? error.message : "Could not save SBOM metadata"); }
     finally { setBusy(false); }
+  }
+
+  async function exportCsv() {
+    if (!token) return;
+    try {
+      const response = await fetch(`${API}/api/sboms/export.csv`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error("Could not export this tenant inventory");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url; link.download = "chainproof-sbom-inventory.csv";
+      document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+      setNotice("Tenant-scoped SBOM CSV export is ready.");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Export failed"); }
   }
 
   function signOut() { setToken(""); setUser(null); setSboms([]); setNotice("Signed out."); }
@@ -103,10 +116,11 @@ export default function App() {
               <label>Document name<input required maxLength={200} value={form.documentName} onChange={e=>setForm({...form,documentName:e.target.value})} placeholder="payments-service" /></label>
               <div className="two-col"><label>Format<select value={form.format} onChange={e=>setForm({...form,format:e.target.value})}><option value="cyclonedx">CycloneDX</option><option value="spdx">SPDX</option></select></label><label>Format version<input required value={form.formatVersion} onChange={e=>setForm({...form,formatVersion:e.target.value})} /></label></div>
               <div className="two-col"><label>Document version<input value={form.documentVersion} onChange={e=>setForm({...form,documentVersion:e.target.value})} placeholder="1.0.0" /></label><label>Component count<input type="number" min="0" max="1000000" value={form.componentCount} onChange={e=>setForm({...form,componentCount:e.target.value})} /></label></div>
-              <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save metadata"} <span>＋</span></button>
+              <label>SHA-256 digest (optional)<input value={form.documentDigest} onChange={e=>setForm({...form,documentDigest:e.target.value.trim().toLowerCase()})} pattern="[a-fA-F0-9]{64}" maxLength={64} placeholder="64-character SHA-256 hex digest" /></label>\n              <button className="primary" disabled={busy}>{busy ? "Saving…" : "Save metadata"} <span>＋</span></button>
             </form>
           </article>
-          <article className="panel"><div className="panel-head"><div><span className="eyebrow">RECENT ACTIVITY</span><h3>SBOM inventory</h3></div><button className="ghost" onClick={()=>refresh(token)}>Refresh ↻</button></div>
+          <article className="panel"><div className="panel-head"><div><span className="eyebrow">RECENT ACTIVITY</span><h3>SBOM inventory</h3></div><div className="inventory-actions"><button className="ghost" onClick={()=>refresh(token, search, formatFilter)}>Search ↻</button><button className="ghost" onClick={exportCsv}>Export CSV ↓</button></div></div>
+            <div className="inventory-filters"><input aria-label="Search SBOM documents" placeholder="Search document names…" value={search} onChange={e=>setSearch(e.target.value)} /><select aria-label="Filter SBOM format" value={formatFilter} onChange={e=>setFormatFilter(e.target.value)}><option value="">All formats</option><option value="cyclonedx">CycloneDX</option><option value="spdx">SPDX</option></select></div>
             {sboms.length ? <div className="table-wrap"><table><thead><tr><th>DOCUMENT</th><th>FORMAT</th><th>COMPONENTS</th><th>STATUS</th></tr></thead><tbody>{sboms.map(item=><tr key={item._id}><td><strong>{item.documentName}</strong><small>{item.documentVersion || "No version"} · {new Date(item.createdAt).toLocaleDateString()}</small></td><td>{item.format.toUpperCase()}</td><td>{item.componentCount.toLocaleString()}</td><td><span className="status-pill">{item.ingestionStatus}</span></td></tr>)}</tbody></table></div> : <div className="empty"><span>▤</span><strong>No SBOM metadata yet</strong><p>Save your first record to populate this tenant-scoped inventory.</p></div>}
           </article>
         </section>
