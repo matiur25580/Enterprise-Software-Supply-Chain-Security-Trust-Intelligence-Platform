@@ -51,13 +51,15 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     const response = await request(app).post("/api/sboms/document").set("x-test-tenant", "tenant-a").send({
       document: {
         bomFormat: "CycloneDX", specVersion: "1.6",
-        metadata: { component: { name: "checkout", version: "3.2.1" } },
-        components: [{ type: "library", name: "express", version: "4.21.2", purl: "pkg:npm/express@4.21.2" }]
+        metadata: { component: { type: "application", name: "checkout", version: "3.2.1" } },
+        components: [{ type: "library", name: "express", version: "4.21.2", "bom-ref": "pkg:express", purl: "pkg:npm/express@4.21.2" }],
+        dependencies: [{ ref: "pkg:express", dependsOn: ["pkg:lodash"] }]
       }
     });
     expect(response.status).toBe(201);
     expect(response.body.item.ingestionStatus).toBe("validated");
     expect(response.body.item.normalizedComponents[0].purl).toBe("pkg:npm/express@4.21.2");
+    expect(response.body.item.normalizedDependencies).toEqual([{ from: "pkg:express", to: "pkg:lodash", relationshipType: "dependsOn" }]);
     const inventory = await request(app).get("/api/sboms").set("x-test-tenant", "tenant-a");
     expect(inventory.body.items[0].documentName).toBe("checkout");
     const otherTenant = await request(app).get("/api/sboms").set("x-test-tenant", "tenant-b");
@@ -69,7 +71,7 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     const ingested = await request(app).post("/api/sboms/document").set("x-test-tenant", "tenant-a").send({
       document: {
         bomFormat: "CycloneDX", specVersion: "1.6",
-        metadata: { component: { name: "checkout" } },
+        metadata: { component: { type: "application", name: "checkout" } },
         components: [{ type: "library", name: "express", version: "4.21.2", purl: "pkg:npm/express@4.21.2" }]
       }
     });
