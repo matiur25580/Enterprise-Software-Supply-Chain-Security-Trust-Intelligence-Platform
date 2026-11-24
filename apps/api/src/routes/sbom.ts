@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { authorize } from "../middleware/authorize";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
@@ -12,6 +13,7 @@ import { VulnerabilityScan } from "../models/VulnerabilityScan";
 const intakeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "SBOM intake rate limit exceeded; retry shortly." } });
 const vulnerabilityLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Vulnerability scan rate limit exceeded; retry shortly." } });
 export const sbomRouter = Router();
+sbomRouter.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 const sbomInputSchema = z.object({
   format: z.enum(["cyclonedx", "spdx"]),
   formatVersion: z.string().trim().min(1).max(40),
@@ -48,7 +50,7 @@ sbomRouter.get("/", authorize("platform-admin", "security-analyst", "developer",
     const filter: Record<string, unknown> = { tenantId: request.auth!.tenantId };
     if (request.query.format === "cyclonedx" || request.query.format === "spdx") filter.format = request.query.format;
     if (typeof request.query.q === "string" && request.query.q.trim()) filter.documentName = { $regex: escapeRegex(request.query.q.trim().slice(0, 80)), $options: "i" };
-    const records = await SbomRecord.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
+    const records = await SbomRecord.find(mongoose.sanitizeFilter(filter)).sort({ createdAt: -1 }).limit(limit).lean();
     response.status(200).json({ items: records, count: records.length, limit });
   } catch { response.status(500).json({ error: "Unable to load SBOM inventory" }); }
 });
