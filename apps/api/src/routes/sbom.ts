@@ -16,8 +16,10 @@ function escapeRegex(value: string): string {
   return [...value].map((character) => special.has(character) ? `\\${character}` : character).join("");
 }
 function csvCell(value: unknown): string {
-  const text = value == null ? "" : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
+  const raw = value == null ? "" : String(value);
+  // Prevent spreadsheet formula execution when a CSV is opened in office tools.
+  const safe = /^[\\t\\r=+@-]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replace(/"/g, '""')}"`;
 }
 sbomRouter.get("/export.csv", async (request, response) => {
   try {
