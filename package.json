@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch apps/api/src/server.ts",
     "build": "npm run build:api && npm run build:web",
-    "typecheck": "tsc --noEmit -p apps/api/tsconfig.json && npm run typecheck:web && tsc --noEmit --target ES2022 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck scripts/ensure-indexes.ts scripts/evaluate-release-policy.ts",
+    "typecheck": "tsc --noEmit -p apps/api/tsconfig.json && npm run typecheck:web && tsc --noEmit --target ES2022 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck scripts/ensure-indexes.ts scripts/evaluate-release-policy.ts scripts/verify-release-passport.ts",
     "start": "node dist/server.js",
     "user:create": "tsx scripts/create-user.ts",
     "dev:web": "vite --config apps/web/vite.config.ts",
@@ -16,7 +16,8 @@
     "test": "vitest run",
     "db:indexes": "tsx scripts/ensure-indexes.ts",
     "test:integration": "vitest run apps/api/test/*.integration.test.ts --pool=forks --poolOptions.forks.singleFork",
-    "policy:evaluate": "tsx scripts/evaluate-release-policy.ts"
+    "policy:evaluate": "tsx scripts/evaluate-release-policy.ts",
+    "passport:verify": "tsx scripts/verify-release-passport.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
