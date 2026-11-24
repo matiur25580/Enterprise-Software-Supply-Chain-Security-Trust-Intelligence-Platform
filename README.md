@@ -188,7 +188,7 @@ npm run sbom:validate -- --file ./bom.json
 # Exit codes: 0 = valid; 1 = command usage; 2 = invalid JSON, unsupported version, or schema failure.
 ```
 
-The CLI prints the format/version, component count, retained dependency relationship count and canonical-JSON digest. Upstream schema source revisions and license notes are documented in [apps/api/src/schemas/sbom/README.md](apps/api/src/schemas/sbom/README.md).
+The CLI prints the format/version, component count, retained dependency relationship count and JSON-serialization digest. Upstream schema source revisions and license notes are documented in [apps/api/src/schemas/sbom/README.md](apps/api/src/schemas/sbom/README.md).
 
 ### Check an SBOM against OSV
 
