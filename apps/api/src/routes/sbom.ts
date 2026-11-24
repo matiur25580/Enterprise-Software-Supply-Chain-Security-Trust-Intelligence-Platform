@@ -43,7 +43,8 @@ sbomRouter.get("/", sbomReadLimiter, authorize("platform-admin", "security-analy
   try {
     const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
     const filter: Record<string, unknown> = { tenantId: request.auth!.tenantId };
-    if (request.query.format === "cyclonedx" || request.query.format === "spdx") filter.format = request.query.format;
+    if (request.query.format === "cyclonedx") filter.format = "cyclonedx";
+    else if (request.query.format === "spdx") filter.format = "spdx";
     // Search is applied in memory to a bounded tenant-scoped result set, never interpolated into MongoDB operators.
     const records = await SbomRecord.find(filter).sort({ createdAt: -1 }).limit(5000).lean();
     const searchTerm = typeof request.query.q === "string" ? request.query.q.trim().slice(0, 80).toLowerCase() : "";
