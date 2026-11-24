@@ -13,7 +13,8 @@ const vexExceptionSchema = new Schema({
   acceptedAt: { type: Date, required: true },
   expiresAt: { type: Date, required: true },
   revokedBy: { type: String, maxlength: 120 },
-  revokedAt: { type: Date }
+  revokedAt: { type: Date },
+  revocationReason: { type: String, maxlength: 1000 }
 }, { timestamps: true, strict: "throw", versionKey: false });
 
 vexExceptionSchema.index({ tenantId: 1, sbomId: 1, advisoryId: 1, purl: 1, expiresAt: 1 });
