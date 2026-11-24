@@ -34,7 +34,7 @@ vexRouter.post("/exceptions", authorize("platform-admin", "security-analyst"), a
   }
   try {
     const tenantId = request.auth!.tenantId;
-    const sbom = await SbomRecord.findOne({ _id: parsed.data.sbomId, tenantId }).select({ _id: 1 }).lean();
+    const sbom: any = await SbomRecord.findOne({ _id: parsed.data.sbomId, tenantId }).select({ _id: 1 }).lean();
     if (!sbom) { response.status(404).json({ error: "SBOM record not found" }); return; }
     const scan: any = await VulnerabilityScan.findOne({ _id: parsed.data.scanId, tenantId, sbomId: sbom._id, status: "completed" }).lean();
     if (!scan) { response.status(404).json({ error: "Completed vulnerability scan not found" }); return; }
