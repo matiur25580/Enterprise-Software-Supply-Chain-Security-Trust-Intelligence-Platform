@@ -16,7 +16,7 @@
 
 ChainProof is a security engineering portfolio project exploring how organizations can make software supply-chain risk more visible, attributable and actionable. Its product direction brings together SBOM inventory, artifact integrity, build provenance, vulnerability context and policy-based release assurance.
 
-The current runnable milestone is intentionally narrower than the long-term vision: it provides tenant-aware authentication, an SBOM metadata inventory, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It does **not** yet parse uploaded SBOM documents, query vulnerability feeds, verify signatures or make production release decisions.
+The current runnable milestone provides tenant-aware authentication, SBOM metadata inventory, bounded CycloneDX/SPDX JSON document ingestion and normalization, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It does **not** yet query vulnerability feeds, verify artifact signatures or make production release decisions.
 
 **Project status:** active engineering foundation / demonstrable MVP. The screenshots in this README are illustrative dashboard concepts made with synthetic data; they are not captures of a live production system.
 
@@ -38,7 +38,8 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 ### Available in this branch
 
 - **Tenant-aware identity:** JWT authentication, role-based authorization and tenant-scoped records.
-- **SBOM metadata inventory:** record CycloneDX/SPDX format metadata, document version, component count, source and optional SHA-256 digest.
+- **SBOM document ingestion:** accept bounded CycloneDX 1.4–1.6 and SPDX 2.3 JSON documents, validate required structure, normalize package names/versions/types and package URLs, and persist a tenant-scoped component summary.
+- **SBOM metadata inventory:** record format metadata, document version, component count, source and a server-computed SHA-256 digest of the JSON serialization.
 - **Inventory discovery:** search by document name and filter by SBOM format.
 - **Controlled export:** tenant-scoped CSV export with quoting and spreadsheet-formula injection protection.
 - **Integrity metadata:** duplicate SHA-256 digest prevention within a tenant.
@@ -50,7 +51,7 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 
 ### Product roadmap — not represented as shipped functionality
 
-- Native CycloneDX and SPDX document upload, schema validation and normalization.
+- Full upstream CycloneDX/SPDX JSON Schema validation, relationship/graph preservation and robust package identity reconciliation.
 - Package URL (purl) identity resolution and component relationship graphs.
 - Vulnerability enrichment using OSV/NVD and exploitability context such as EPSS/KEV.
 - Artifact digest verification and Sigstore/Cosign signature validation.
@@ -99,7 +100,8 @@ Express + TypeScript API
 - Passwords are stored as bcrypt hashes; access tokens are short-lived and use issuer/audience validation.
 - Login and SBOM intake are rate-limited; JSON request bodies have a size limit.
 - CSV export quotes fields and neutralizes spreadsheet formula prefixes.
-- Optional SHA-256 values are metadata in this milestone. They are **not** verified against uploaded bytes because file ingestion is not implemented.
+- Document ingestion accepts JSON request bodies up to the API's 2 MiB limit; the server computes a digest from the parsed JSON serialization. It is not a byte-for-byte original upload hash and does not establish artifact authenticity.
+- The parser performs strict structural checks for supported format/version fields and normalizes a bounded component subset; it is not a complete official CycloneDX/SPDX JSON Schema validator. Raw SBOM documents are not retained.
 - Uploaded artifacts, repositories and build scripts must never be executed inside the API process.
 - Secrets belong in a secret manager or local ignored environment file, never in source control.
 
@@ -163,6 +165,19 @@ npm run user:create
 
 Use the CLI prompts; do not commit credentials or share a demo password in screenshots.
 
+### Ingest a CycloneDX or SPDX JSON document
+
+Authenticate first and send the JSON document to `POST /api/sboms/document`. The endpoint is tenant-scoped, rate-limited and limited by the API's 2 MiB JSON body parser. Example CycloneDX request:
+
+```bash
+curl -X POST http://localhost:4000/api/sboms/document \
+  -H 'Authorization: Bearer <access-token>' \
+  -H 'Content-Type: application/json' \
+  --data-binary @sbom.cdx.json
+```
+
+The endpoint expects an envelope: `{"document": { ...SBOM JSON... }, "source": "optional-origin"}`. It supports CycloneDX 1.4, 1.5 and 1.6, plus SPDX 2.3 JSON. Successful ingestion stores a server-computed JSON-serialization digest and normalized component summary; it does not store the raw document. Invalid structures return HTTP 400 and a tenant-local duplicate digest returns HTTP 409.
+
 ## 7. Environment configuration
 
 | Variable | Purpose | Example / requirement |
@@ -200,7 +215,7 @@ A concise executive view of component exposure, SBOM coverage and release assura
 ![Illustrative ChainProof dashboard — supply chain command center](docs/assets/dashboard/01-software-supply-chain-command-center.svg)
 
 ### 02 — SBOM inventory explorer
-A searchable inventory concept for CycloneDX and SPDX documents, versions, component counts and provenance references. The implemented MVP currently supports metadata records, search, filtering and CSV export—not file parsing.
+A searchable inventory concept for CycloneDX and SPDX documents, versions, component counts and provenance references. The MVP accepts bounded JSON SBOM documents and stores normalized component summaries, with search, filtering and CSV export. It does not retain raw files or preserve the complete dependency graph.
 
 ![Illustrative ChainProof dashboard — SBOM inventory explorer](docs/assets/dashboard/02-sbom-inventory-explorer.svg)
 
