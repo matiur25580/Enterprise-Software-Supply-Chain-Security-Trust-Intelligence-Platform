@@ -180,6 +180,7 @@ Never use the example JWT value outside local setup. Production should use manag
 
 ```bash
 npm test
+MONGODB_URI=mongodb://127.0.0.1:27017/chainproof_test npm run test:integration
 npm run typecheck
 npm run build
 npm run db:indexes
@@ -187,7 +188,7 @@ npm run db:indexes
 
 The CI workflow runs tests, API/web type checks, production builds and a Docker image build. CodeQL runs on pushes, pull requests and a weekly schedule. Dependabot checks npm and GitHub Actions dependencies weekly.
 
-**Verification boundary:** unit/API tests currently mock persistence where appropriate. A passing CI run does not by itself prove live MongoDB integration, browser end-to-end behavior, vulnerability-feed accuracy or production deployment readiness.
+**Verification boundary:** the CI pipeline runs both mocked unit/API tests and MongoDB-backed integration tests against an ephemeral MongoDB 7 service. This verifies the tested persistence and tenant-isolation paths, but does not prove browser end-to-end behavior, vulnerability-feed accuracy or production deployment readiness.
 
 ## 9. Dashboard concept gallery — 12 illustrative screens
 
@@ -278,7 +279,7 @@ docker-compose.yml
 3. Integrate vulnerability intelligence with source attribution and freshness metadata.
 4. Verify artifact signatures and provenance against configured trust roots.
 5. Introduce versioned policy-as-code and auditable exception workflows.
-6. Add live MongoDB integration tests, browser E2E tests and operational runbooks.
+6. Add browser E2E tests and operational runbooks.
 7. Add metrics, tracing, alerting, backup/restore exercises and deployment hardening.
 
 ## 12. Responsible use and disclosure
