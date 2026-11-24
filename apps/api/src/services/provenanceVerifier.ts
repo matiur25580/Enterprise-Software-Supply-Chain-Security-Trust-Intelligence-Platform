@@ -38,6 +38,30 @@ function decodeBase64(value: unknown, maxBytes: number): Buffer {
  * the signed SLSA provenance statement against the supplied artifact bytes.
  * Trust policy is server-side only; clients cannot choose trusted identities.
  */
+export async function verifyArtifactSignature(artifactBase64: string, bundle: unknown): Promise<Pick<ProvenanceSummary, "artifactDigest" | "certificateIssuer" | "certificateIdentity">> {
+  const issuer = process.env.SIGSTORE_CERTIFICATE_ISSUER?.trim();
+  const identity = process.env.SIGSTORE_CERTIFICATE_IDENTITY?.trim();
+  if (!issuer || !identity) throw new ProvenanceVerificationError("policy_not_configured");
+  const artifact = decodeBase64(artifactBase64, 1024 * 1024);
+  if (!isRecord(bundle) || Buffer.byteLength(JSON.stringify(bundle), "utf8") > 512 * 1024) {
+    throw new ProvenanceVerificationError("invalid_bundle");
+  }
+  try {
+    await verify(bundle as never, artifact, {
+      certificateIssuer: issuer,
+      certificateIdentity: identity
+    } as never);
+  } catch {
+    throw new ProvenanceVerificationError("signature_invalid");
+  }
+  return {
+    artifactDigest: createHash("sha256").update(artifact).digest("hex"),
+    certificateIssuer: issuer,
+    certificateIdentity: identity
+  };
+}
+
+/** Verify a signed SLSA provenance DSSE envelope against artifact bytes. */
 export async function verifySlsaProvenance(artifactBase64: string, bundle: unknown): Promise<ProvenanceSummary> {
   const issuer = process.env.SIGSTORE_CERTIFICATE_ISSUER?.trim();
   const identity = process.env.SIGSTORE_CERTIFICATE_IDENTITY?.trim();
