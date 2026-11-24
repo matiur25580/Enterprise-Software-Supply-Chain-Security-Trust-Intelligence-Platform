@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 import { authorize } from "../middleware/authorize";
 import { ArtifactVerification } from "../models/ArtifactVerification";
-import { ProvenanceVerificationError, verifySlsaProvenance } from "../services/provenanceVerifier";
+import { ProvenanceVerificationError, verifyArtifactSignature, verifySlsaProvenance } from "../services/provenanceVerifier";
 
 export const trustRouter = Router();
 const verificationLimiter = rateLimit({
