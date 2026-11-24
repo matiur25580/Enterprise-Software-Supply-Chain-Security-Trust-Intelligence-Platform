@@ -5,6 +5,9 @@ export interface OsvVulnerability {
   published?: string;
   aliases: string[];
   references: string[];
+  cvssScore?: number;
+  cvssVector?: string;
+  severity: "critical" | "high" | "medium" | "low" | "unknown";
 }
 export interface OsvPackageResult {
   purl: string;
@@ -61,8 +64,24 @@ export async function queryOsvByPurls(purls: string[]): Promise<OsvPackageResult
       const refs = Array.isArray(raw.references) ? raw.references.flatMap((ref) =>
         isRecord(ref) && typeof ref.url === "string" && /^https:\/\//.test(ref.url) ? [ref.url.slice(0, 2048)] : []
       ).slice(0, 20) : [];
+      const severityEntries = Array.isArray(raw.severity) ? raw.severity : [];
+      const cvssEntry = severityEntries.find((entry) => isRecord(entry) && typeof entry.score === "string" && entry.score.startsWith("CVSS:"));
+      const numericScore = isRecord(raw.database_specific) && typeof raw.database_specific.cvss === "number"
+        ? raw.database_specific.cvss
+        : severityEntries.find((entry) => isRecord(entry) && typeof entry.score === "number")?.score;
+      const cvssScore = typeof numericScore === "number" && numericScore >= 0 && numericScore <= 10 ? numericScore : undefined;
+      const rawSeverity = isRecord(raw.database_specific) && typeof raw.database_specific.severity === "string"
+        ? raw.database_specific.severity.toLowerCase() : "";
+      const severity = ["critical", "high", "medium", "low"].includes(rawSeverity)
+        ? rawSeverity as "critical" | "high" | "medium" | "low"
+        : cvssScore !== undefined
+          ? cvssScore >= 9 ? "critical" : cvssScore >= 7 ? "high" : cvssScore >= 4 ? "medium" : cvssScore > 0 ? "low" : "unknown"
+          : "unknown";
       return [{
         id: raw.id,
+        ...(cvssScore !== undefined ? { cvssScore } : {}),
+        ...(isRecord(cvssEntry) && typeof cvssEntry.score === "string" ? { cvssVector: cvssEntry.score.slice(0, 500) } : {}),
+        severity,
         ...(typeof raw.summary === "string" ? { summary: raw.summary.slice(0, 1000) } : {}),
         ...(typeof raw.modified === "string" ? { modified: raw.modified } : {}),
         ...(typeof raw.published === "string" ? { published: raw.published } : {}),
