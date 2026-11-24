@@ -10,6 +10,7 @@ const sbomRecordSchema = new Schema({
   componentCount: { type: Number, required: true, min: 0, max: 1000000 },
   source: { type: String, maxlength: 500 },
   documentDigest: { type: String, match: /^[a-f0-9]{64}$/i },
+  normalizedComponents: { type: [{ name: { type: String, required: true, maxlength: 500 }, version: { type: String, maxlength: 200 }, purl: { type: String, maxlength: 1024 }, supplier: { type: String, maxlength: 200 }, componentType: { type: String, maxlength: 80 }, _id: false }], default: [] },
   ingestionStatus: {
     type: String,
     enum: ["received", "validated", "rejected"],
