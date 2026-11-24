@@ -86,7 +86,8 @@ export default function App() {
   }
 
   async function uploadSbomDocument(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
+    const input = event.currentTarget;
+    const file = input.files?.[0];
     if (!file || !token) return;
     setBusy(true); setNotice("");
     try {
@@ -96,7 +97,7 @@ export default function App() {
       await refresh(token, search, formatFilter);
       setNotice("SBOM JSON parsed, normalized and saved. Raw document bytes are not retained.");
     } catch (error) { setNotice(error instanceof Error ? error.message : "Could not ingest SBOM JSON"); }
-    finally { setBusy(false); event.currentTarget.value = ""; }
+    finally { setBusy(false); input.value = ""; }
   }
 
   async function scanSbom(id: string) {
