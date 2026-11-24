@@ -167,9 +167,37 @@ export default function App() {
             {sboms.length ? <div className="table-wrap"><table><thead><tr><th>DOCUMENT</th><th>FORMAT</th><th>COMPONENTS</th><th>STATUS</th><th>SECURITY</th></tr></thead><tbody>{sboms.map(item=><tr key={item._id}><td><strong>{item.documentName}</strong><small>{item.documentVersion || "No version"} · {new Date(item.createdAt).toLocaleDateString()}</small></td><td>{item.format.toUpperCase()}</td><td>{item.componentCount.toLocaleString()}</td><td><span className="status-pill">{item.ingestionStatus}</span></td><td><button className="ghost" disabled={busy} onClick={()=>scanSbom(item._id)}>Scan OSV ↗</button></td></tr>)}</tbody></table></div> : <div className="empty"><span>▤</span><strong>No SBOM metadata yet</strong><p>Save your first record to populate this tenant-scoped inventory.</p></div>}
           </article>
         </section>
+        <section className="security-grid">
+          <article className="panel">
+            <div className="panel-head"><div><span className="eyebrow">VULNERABILITY INTELLIGENCE</span><h3>Latest OSV scan</h3></div><span className="pill">{latestScan ? latestScan.findingCount + " findings" : "No scan selected"}</span></div>
+            {latestScan ? <>
+              <div className="scan-summary">
+                <div><strong>{latestScan.scannedPackages}</strong><small>Packages scanned</small></div>
+                <div><strong>{latestScan.vulnerablePackages}</strong><small>Vulnerable packages</small></div>
+                <div><strong>{latestScan.findingCount}</strong><small>Advisories</small></div>
+              </div>
+              <p className="scan-meta">SBOM {selectedSbom.slice(-8)} · {new Date(latestScan.scannedAt).toLocaleString()}</p>
+              {latestScan.findings.length ? <div className="finding-list">{latestScan.findings.map((finding,index)=><div className="finding" key={finding.id + finding.purl + index}>
+                <div className="finding-title"><strong>{finding.id}</strong><span className={"severity " + finding.severity}>{finding.severity}</span>{finding.isKnownExploited && <span className="kev">CISA KEV</span>}</div>
+                <p>{finding.summary || "No advisory summary provided."}</p>
+                <small>{finding.purl}</small>
+                <div className="finding-metrics"><span>CVSS <b>{finding.cvssScore?.toFixed(1) ?? "—"}</b></span><span>EPSS <b>{finding.epssScore !== undefined ? (finding.epssScore * 100).toFixed(1) + "%" : "—"}</b></span><span>Percentile <b>{finding.epssPercentile !== undefined ? (finding.epssPercentile * 100).toFixed(1) + "%" : "—"}</b></span></div>
+                {finding.references[0] && <a href={finding.references[0]} target="_blank" rel="noreferrer">Advisory reference ↗</a>}
+              </div>)}</div> : <div className="empty"><strong>No known vulnerabilities returned</strong><p>OSV did not report findings for the scanned package URLs.</p></div>}
+            </> : <div className="empty"><span>⌖</span><strong>Run a scan from SBOM inventory</strong><p>Choose “Scan OSV” on a tenant-owned SBOM to view advisories, CVSS, EPSS and CISA KEV context.</p></div>}
+          </article>
+          <article className="panel">
+            <div className="panel-head"><div><span className="eyebrow">SUPPLY CHAIN TRUST</span><h3>Verification audit history</h3></div><button className="ghost" onClick={()=>refresh(token,search,formatFilter)}>Refresh ↻</button></div>
+            {verificationHistory.length ? <div className="audit-list">{verificationHistory.map(item=><div className="audit-row" key={item._id}>
+              <div><strong>{item.verificationType === "sigstore-slsa-provenance" ? "SLSA provenance" : "Artifact signature"}</strong><small>{item.certificateIdentity || item.builderId || item.failureCode || item.artifactDigest.slice(0,16)}</small><small>{new Date(item.createdAt).toLocaleString()}</small></div>
+              <span className={"audit-status " + item.status}>{item.status}</span>
+            </div>)}</div> : <div className="empty"><span>⌁</span><strong>No verification events yet</strong><p>Verified and rejected artifact checks will appear here.</p></div>}
+            <p className="scan-meta">History is restricted to the authenticated tenant. Artifact bytes and signature bundles are never displayed.</p>
+          </article>
+        </section>
       </>}
       {notice && <div className="notice" role="status">{notice}</div>}
-      <footer>CHAINPROOF · FOUNDATION BUILD <span>Cryptographic verification and release policy are not yet implemented.</span></footer>
+      <footer>CHAINPROOF · SECURITY OPERATIONS <span>OSV, CISA KEV, EPSS and Sigstore evidence · tenant-scoped</span></footer>
     </section>
   </main>;
 }
