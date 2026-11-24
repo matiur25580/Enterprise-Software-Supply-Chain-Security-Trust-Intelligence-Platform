@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { SbomRecord } from "../models/SbomRecord";
 
 export const sbomRouter = Router();
 
@@ -12,9 +13,16 @@ const sbomInputSchema = z.object({
   source: z.string().max(500).optional()
 }).strict();
 
-// This endpoint validates metadata only; binary/document ingestion and storage
-// are intentionally not advertised as implemented in this milestone.
-sbomRouter.post("/", (request, response) => {
+// Listing is always constrained by the tenant established by JWT middleware.
+sbomRouter.get("/", async (request, response) => {
+  const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
+  const records = await SbomRecord.find({ tenantId: request.auth!.tenantId })
+    .sort({ createdAt: -1 }).limit(limit).lean();
+  response.status(200).json({ items: records });
+});
+
+// Persist only validated metadata; the actual SBOM file parser is a later milestone.
+sbomRouter.post("/", async (request, response) => {
   const parsed = sbomInputSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({
@@ -27,10 +35,15 @@ sbomRouter.post("/", (request, response) => {
     return;
   }
 
-  response.status(202).json({
-    status: "accepted-for-validation",
-    message: "Metadata accepted; document ingestion is not enabled in this milestone.",
-    tenantId: request.auth?.tenantId,
-    sbom: parsed.data
+  const record = await SbomRecord.create({
+    ...parsed.data,
+    tenantId: request.auth!.tenantId,
+    ingestionStatus: "received"
+  });
+
+  response.status(201).json({
+    status: "metadata-recorded",
+    message: "SBOM metadata stored. Document parsing and security analysis are not enabled yet.",
+    item: record
   });
 });
