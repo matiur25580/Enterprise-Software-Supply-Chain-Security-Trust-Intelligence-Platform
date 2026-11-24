@@ -16,7 +16,7 @@
 
 ChainProof is a security engineering portfolio project exploring how organizations can make software supply-chain risk more visible, attributable and actionable. Its product direction brings together SBOM inventory, artifact integrity, build provenance, vulnerability context and policy-based release assurance.
 
-The current runnable milestone provides tenant-aware authentication, SBOM metadata inventory, bounded CycloneDX/SPDX JSON document ingestion and normalization, on-demand OSV vulnerability lookup with persisted scan history and CVSS/CISA KEV/FIRST EPSS context, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It does **not** yet query vulnerability feeds, verify artifact signatures or make production release decisions.
+The current runnable milestone provides tenant-aware authentication, SBOM metadata inventory, bounded CycloneDX/SPDX JSON document ingestion and normalization, on-demand OSV vulnerability lookup with persisted scan history and CVSS/CISA KEV/FIRST EPSS context, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It queries OSV and enriches CVE aliases with optional CISA KEV/FIRST EPSS context; it verifies Cosign/Sigstore artifact signatures and signed SLSA provenance under explicit server-side identity policies. It does **not** make automated production release decisions or claim full SLSA conformance.
 
 **Project status:** active engineering foundation / demonstrable MVP. The screenshots in this README are illustrative dashboard concepts made with synthetic data; they are not captures of a live production system.
 
@@ -281,7 +281,7 @@ A future triage workspace for advisory severity, exploitability, affected depend
 ![Illustrative ChainProof dashboard — vulnerability intelligence](docs/assets/dashboard/03-vulnerability-intelligence.svg)
 
 ### 04 — Build provenance verification
-A proposed verification view for artifact digests, builder identity, signed attestations and source-to-binary traceability. Signature verification and provenance policy enforcement remain roadmap work.
+A proposed verification view for artifact digests, builder identity, signed attestations and source-to-binary traceability. The MVP verifies detached Cosign/Sigstore signatures and signed SLSA provenance v1 bundles against supplied artifact bytes and configured signer/builder policies. Full SLSA conformance and registry-aware OCI verification remain roadmap work.
 
 ![Illustrative ChainProof dashboard — build provenance verification](docs/assets/dashboard/04-provenance-verification.svg)
 
