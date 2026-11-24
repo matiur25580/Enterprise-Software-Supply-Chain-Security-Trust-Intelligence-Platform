@@ -107,7 +107,7 @@ Express + TypeScript API
 - Login and SBOM intake are rate-limited; JSON request bodies have a size limit.
 - CSV export quotes fields and neutralizes spreadsheet formula prefixes.
 - Document ingestion accepts JSON request bodies up to the API's 2 MiB limit; the server computes a digest from the parsed JSON serialization. It is not a byte-for-byte original upload hash and does not establish artifact authenticity.
-- The parser performs strict structural checks for supported format/version fields and normalizes a bounded component subset; it is not a complete official CycloneDX/SPDX JSON Schema validator. Raw SBOM documents are not retained.
+- The parser validates CycloneDX 1.4/1.5/1.6 and SPDX 2.3 JSON against vendored upstream JSON Schemas, then applies bounded normalization and retains component identifiers plus dependency/relationship edges. The raw SBOM document is not retained. The SHA-256 digest is calculated from canonical JSON serialization, not the original upload bytes.
 - Sigstore verification uses server-configured certificate issuer and exact certificate identity; SLSA builder IDs must match a server-side allowlist. Requests cannot weaken or replace these trust policies.
 - Artifact verification accepts at most 1 MiB of base64-encoded artifact bytes and a bounded Sigstore bundle. It computes SHA-256 over the supplied bytes and checks the signed SLSA statement subject against that digest.
 - Verification stores the artifact digest and result metadata only; it does not persist artifact bytes or the submitted Sigstore bundle. Rejected attempts are also recorded with a stable failure code.
@@ -175,6 +175,21 @@ npm run user:create
 
 Use the CLI prompts; do not commit credentials or share a demo password in screenshots.
 
+
+
+### Validate an SBOM locally before upload
+
+You can run the same official-schema validation offline without sending the SBOM to ChainProof or any external service:
+
+```bash
+# Validate a local CycloneDX 1.6, CycloneDX 1.5/1.4, or SPDX 2.3 JSON file.
+npm run sbom:validate -- --file ./bom.json
+
+# Exit codes: 0 = valid; 1 = command usage; 2 = invalid JSON, unsupported version, or schema failure.
+```
+
+The CLI prints the format/version, component count, retained dependency relationship count and canonical-JSON digest. Upstream schema source revisions and license notes are documented in [apps/api/src/schemas/sbom/README.md](apps/api/src/schemas/sbom/README.md).
+
 ### Check an SBOM against OSV
 
 After ingesting a document, use its MongoDB record ID to request an on-demand vulnerability lookup:
@@ -197,7 +212,7 @@ curl -X POST http://localhost:4000/api/sboms/document \
   --data-binary @request.json
 ```
 
-The endpoint expects an envelope: `{"document": { ...SBOM JSON... }, "source": "optional-origin"}`. It supports CycloneDX 1.4, 1.5 and 1.6, plus SPDX 2.3 JSON. Successful ingestion stores a server-computed JSON-serialization digest and normalized component summary; it does not store the raw document. Invalid structures return HTTP 400 and a tenant-local duplicate digest returns HTTP 409.
+The endpoint expects an envelope: `{"document": { ...SBOM JSON... }, "source": "optional-origin"}`. It validates CycloneDX 1.4, 1.5 and 1.6, plus SPDX 2.3 JSON against the upstream JSON Schemas vendored under `apps/api/src/schemas/sbom/`. Successful ingestion stores a server-computed JSON-serialization digest, normalized component identifiers and dependency/relationship edges; it does not store the raw document. Invalid structures return HTTP 400 and a tenant-local duplicate digest returns HTTP 409.
 
 
 ### Verify signed SLSA provenance
