@@ -25,7 +25,7 @@
     "helmet": "^8.0.0",
     "mongoose": "^8.10.1",
     "zod": "^3.24.2",
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.2",
     "express-rate-limit": "^7.5.0",
     "sigstore": "^4.1.1",
