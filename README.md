@@ -131,6 +131,7 @@ The command provisions declared user, SBOM, vulnerability scan, artifact verific
 - Node.js 20 or newer and npm
 - Docker Engine + Docker Compose (recommended for the complete local stack)
 - A local MongoDB instance if not using Compose
+- `jq` and GNU `base64` for the optional shell/API examples
 
 ### Option A — Docker Compose
 
