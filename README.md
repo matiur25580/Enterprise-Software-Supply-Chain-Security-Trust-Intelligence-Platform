@@ -16,7 +16,7 @@
 
 ChainProof is a security engineering portfolio project exploring how organizations can make software supply-chain risk more visible, attributable and actionable. Its product direction brings together SBOM inventory, artifact integrity, build provenance, vulnerability context and policy-based release assurance.
 
-The current runnable milestone provides tenant-aware authentication, SBOM metadata inventory, bounded CycloneDX/SPDX JSON document ingestion and normalization, on-demand OSV vulnerability lookup with persisted scan history and CVSS/CISA KEV/FIRST EPSS context, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It queries OSV and enriches CVE aliases with optional CISA KEV/FIRST EPSS context; it verifies Cosign/Sigstore artifact signatures and signed SLSA provenance under explicit server-side identity policies. It does **not** make automated production release decisions or claim full SLSA conformance.
+The current runnable milestone provides tenant-aware authentication, bounded CycloneDX/SPDX JSON document validation and normalization, optional durable asynchronous SBOM persistence jobs with tenant-scoped status tracking and bounded retries, on-demand OSV vulnerability lookup with persisted scan history and CVSS/CISA KEV/FIRST EPSS context, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It queries OSV and enriches CVE aliases with optional CISA KEV/FIRST EPSS context; it verifies Cosign/Sigstore artifact signatures and signed SLSA provenance under explicit server-side identity policies. It does **not** make automated production release decisions or claim full SLSA conformance.
 
 **Project status:** active engineering foundation / demonstrable MVP. The screenshots in this README are illustrative dashboard concepts made with synthetic data; they are not captures of a live production system.
 
@@ -38,7 +38,8 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 ### Available in this branch
 
 - **Tenant-aware identity:** JWT authentication, role-based authorization and tenant-scoped records.
-- **SBOM document ingestion:** accept bounded CycloneDX 1.4–1.6 and SPDX 2.3 JSON documents, validate required structure, normalize package names/versions/types and package URLs, and persist a tenant-scoped component summary.
+- **SBOM document ingestion:** accept bounded CycloneDX 1.4–1.6 and SPDX 2.3 JSON documents, validate official schemas, normalize components and dependency relationships, and persist tenant-scoped inventory.
+- **Durable asynchronous persistence:** an opt-in ingestion endpoint queues validated normalized data in MongoDB, returns a job ID, supports tenant-scoped status polling, uses atomic worker leases and idempotent SBOM writes, retries transient failures up to three times, and expires completed/failed job metadata after seven days. Schema validation and normalization still occur synchronously before enqueueing; raw source documents are not stored in the queue.
 - **SBOM metadata inventory:** record format metadata, document version, component count, source and a server-computed SHA-256 digest of the JSON serialization.
 - **Inventory discovery:** search by document name and filter by SBOM format.
 - **Controlled export:** tenant-scoped CSV export with quoting and spreadsheet-formula injection protection.
@@ -57,13 +58,13 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 
 ### Product roadmap — not represented as shipped functionality
 
-- Full upstream CycloneDX/SPDX JSON Schema validation, relationship/graph preservation and robust package identity reconciliation.
+- Move schema validation and normalization into isolated workers so large-document parsing also runs asynchronously; add streaming uploads and explicit worker scaling controls.
 - Package URL (purl) identity resolution and component relationship graphs.
 - NVD enrichment, deployment-aware exploitability context and policy-based prioritization of persisted findings.
 - OCI image signature verification and registry-aware Cosign verification.
 - Full SLSA build-level policy evaluation, source-control protections and deployment-aware release gates.
 - Configurable policy authoring, approval workflows, risk exceptions and signed release attestations.
-- Risk exceptions with owners, expiry, compensating controls and approval history.
+- Expand time-bounded risk acceptance with multi-party approval, reassessment reminders and richer audit history.
 - Evidence retention, audit export, alerting and integrations with GitHub and CI/CD systems.
 
 Roadmap items are clearly separated from the current MVP so that portfolio reviewers can distinguish implemented behavior from product ambition.
@@ -80,10 +81,13 @@ Express + TypeScript API
   |       |        +-- Zod request validation
   |       +----------- Authentication / RBAC
   +------------------- Tenant-scoped services
-          |
-          v
-       MongoDB
-  users / SBOMs / vulnerability scans / trust audit / policy evaluations / signed release passports
+          |                         |
+          v                         v
+       MongoDB              Durable ingestion jobs
+  users / SBOMs / scans            |
+  trust audit / policies           v
+  signed release passports   Background worker
+                             (atomic leases + retries)
 ```
 
 For the detailed component view, evidence lifecycle, offline passport trust decisions and command-line examples, see the [System Architecture and Trust Flows](docs/architecture/SYSTEM-ARCHITECTURE.md) guide.
@@ -425,6 +429,28 @@ An audit-oriented view of control coverage, evidence freshness, exceptions and r
 
 ![Illustrative ChainProof dashboard — compliance assurance report](https://raw.githubusercontent.com/matiur25580/Enterprise-Software-Supply-Chain-Security-Trust-Intelligence-Platform/main/docs/assets/dashboard/12-compliance-assurance-report.svg)
 
+
+## Asynchronous SBOM ingestion
+
+The existing `POST /api/sboms/document` endpoint remains synchronous for compatibility. For durable background persistence after validation and normalization, use `POST /api/sboms/document/async`:
+
+```bash
+jq -n --slurpfile sbom ./sbom.json '{document: $sbom[0], source: "ci://pipeline/42"}' > sbom-request.json
+
+curl --fail-with-body -sS -X POST "$CHAINPROOF_API_URL/api/sboms/document/async" \
+  -H "Authorization: Bearer $CHAINPROOF_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data-binary @sbom-request.json > enqueue-response.json
+```
+
+A successful enqueue returns HTTP `202 Accepted` with a `jobId` and `statusUrl`. Poll the tenant-scoped status endpoint until it reaches `completed` or `failed`:
+
+```bash
+curl --fail-with-body -sS "$CHAINPROOF_API_URL$(jq -r '.statusUrl' enqueue-response.json)" \
+  -H "Authorization: Bearer $CHAINPROOF_TOKEN"
+```
+
+Job states are `queued`, `processing`, `completed` and `failed`. Transient persistence errors are retried at most three times with bounded backoff. Worker leases allow another API instance to recover work after a worker crash; SBOM writes are idempotent per ingestion job. Job status and error metadata expire seven days after a terminal state. The queue stores normalized data only, not the original SBOM document. This first stage moves durable inventory persistence to the worker; schema validation and normalization still happen in the request process.
 
 ## Signed Release Trust Passport
 

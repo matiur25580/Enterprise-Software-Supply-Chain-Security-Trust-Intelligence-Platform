@@ -3,10 +3,12 @@ import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../src/models/SbomRecord", () => ({ SbomRecord: { find: vi.fn(), findOne: vi.fn(), create: vi.fn() } }));
 vi.mock("../src/models/VulnerabilityScan", () => ({ VulnerabilityScan: { create: vi.fn(), find: vi.fn() } }));
+vi.mock("../src/models/SbomIngestionJob", () => ({ SbomIngestionJob: { create: vi.fn(), findOne: vi.fn() } }));
 vi.mock("../src/services/exploitabilityEnrichment", () => ({ enrichExploitability: vi.fn().mockResolvedValue(new Map([["GHSA-test", { epssScore: 0.42, epssPercentile: 0.91, isKnownExploited: true }]])) }));
 vi.mock("../src/services/osvClient", () => ({ queryOsvByPurls: vi.fn(), OsvServiceError: class OsvServiceError extends Error {} }));
 import { SbomRecord } from "../src/models/SbomRecord";
 import { VulnerabilityScan } from "../src/models/VulnerabilityScan";
+import { SbomIngestionJob } from "../src/models/SbomIngestionJob";
 import { queryOsvByPurls } from "../src/services/osvClient";
 import { enrichExploitability } from "../src/services/exploitabilityEnrichment";
 import { sbomRouter } from "../src/routes/sbom";
@@ -16,6 +18,8 @@ const findOne = vi.mocked(SbomRecord.findOne);
 const osvQuery = vi.mocked(queryOsvByPurls);
 const enrich = vi.mocked(enrichExploitability);
 const scanCreate = vi.mocked(VulnerabilityScan.create);
+const jobCreate = vi.mocked(SbomIngestionJob.create);
+const jobFindOne = vi.mocked(SbomIngestionJob.findOne);
 const app = express();
 app.use(express.json());
 app.use((req, _res, next) => {
@@ -85,6 +89,40 @@ describe("tenant-scoped SBOM API", () => {
       ingestionStatus: "validated", normalizedComponents: [expect.objectContaining({ name: "express", bomRef: "pkg:express", purl: "pkg:npm/express@4.21.2" })], normalizedDependencies: [{ from: "pkg:express", to: "pkg:lodash", relationshipType: "dependsOn" }]
     }));
   });
+  it("queues validated SBOM data and returns an asynchronous job identifier", async () => {
+    jobCreate.mockResolvedValue({ _id: "507f1f77bcf86cd799439012" } as never);
+    const response = await request(app).post("/api/sboms/document/async").send({
+      source: "ci://build/123",
+      document: {
+        bomFormat: "CycloneDX", specVersion: "1.6",
+        metadata: { component: { type: "application", name: "checkout", version: "1.0" } },
+        components: [{ type: "library", name: "express", version: "4.21.2", purl: "pkg:npm/express@4.21.2" }]
+      }
+    });
+    expect(response.status).toBe(202);
+    expect(response.body).toMatchObject({ status: "queued", jobId: "507f1f77bcf86cd799439012" });
+    expect(response.body.statusUrl).toBe("/api/sboms/ingestion-jobs/507f1f77bcf86cd799439012");
+    expect(jobCreate).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: "tenant-a", status: "queued", attempts: 0, maxAttempts: 3, source: "ci://build/123",
+      payload: expect.objectContaining({ format: "cyclonedx", documentName: "checkout", normalizedComponents: [expect.objectContaining({ purl: "pkg:npm/express@4.21.2" })] })
+    }));
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("returns tenant-scoped ingestion job status without exposing the queued payload", async () => {
+    const lean = vi.fn().mockResolvedValue({
+      _id: "507f1f77bcf86cd799439012", status: "processing", attempts: 2, maxAttempts: 3,
+      createdAt: new Date("2026-11-24T12:00:00Z"), updatedAt: new Date("2026-11-24T12:00:01Z")
+    });
+    const select = vi.fn().mockReturnValue({ lean });
+    jobFindOne.mockReturnValue({ select } as never);
+    const response = await request(app).get("/api/sboms/ingestion-jobs/507f1f77bcf86cd799439012");
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ status: "processing", attempts: 2, maxAttempts: 3 });
+    expect(response.body.payload).toBeUndefined();
+    expect(jobFindOne).toHaveBeenCalledWith({ _id: "507f1f77bcf86cd799439012", tenantId: "tenant-a" });
+  });
+
   it("rejects malformed SBOM documents before persistence", async () => {
     const response = await request(app).post("/api/sboms/document").send({
       document: { bomFormat: "CycloneDX", specVersion: "1.3", components: [] }
