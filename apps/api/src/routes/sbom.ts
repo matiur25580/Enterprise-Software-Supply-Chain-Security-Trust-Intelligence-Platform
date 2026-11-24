@@ -3,6 +3,7 @@ import { authorize } from "../middleware/authorize";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { SbomRecord } from "../models/SbomRecord";
+import { parseSbomDocument, SbomValidationError } from "../services/sbomParser";
 
 const intakeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "SBOM intake rate limit exceeded; retry shortly." } });
 export const sbomRouter = Router();
@@ -46,6 +47,40 @@ sbomRouter.get("/", authorize("platform-admin", "security-analyst", "developer",
     response.status(200).json({ items: records, count: records.length, limit });
   } catch { response.status(500).json({ error: "Unable to load SBOM inventory" }); }
 });
+
+/** Accepts a bounded JSON CycloneDX or SPDX document; raw documents are not retained. */
+sbomRouter.post("/document", authorize("platform-admin", "security-analyst", "developer"), intakeLimiter, async (request, response) => {
+  const input = z.object({ document: z.unknown(), source: z.string().max(500).optional() }).strict().safeParse(request.body);
+  if (!input.success) {
+    response.status(400).json({ error: "SBOM upload request is invalid" });
+    return;
+  }
+  try {
+    const parsed = parseSbomDocument(input.data.document);
+    const record = await SbomRecord.create({
+      ...parsed,
+      source: input.data.source,
+      tenantId: request.auth!.tenantId,
+      ingestionStatus: "validated"
+    });
+    response.status(201).json({
+      status: "validated",
+      message: "SBOM structure validated and normalized. Vulnerability analysis and signature verification are not enabled.",
+      item: record
+    });
+  } catch (error) {
+    if (error instanceof SbomValidationError) {
+      response.status(400).json({ error: "SBOM document failed validation", reason: error.message });
+      return;
+    }
+    if (typeof error === "object" && error !== null && "code" in error && error.code === 11000) {
+      response.status(409).json({ error: "An SBOM with this digest already exists in this tenant." });
+      return;
+    }
+    response.status(500).json({ error: "Unable to ingest SBOM document" });
+  }
+});
+
 sbomRouter.post("/", authorize("platform-admin", "security-analyst", "developer"), intakeLimiter, async (request, response) => {
   const parsed = sbomInputSchema.safeParse(request.body);
   if (!parsed.success) {
