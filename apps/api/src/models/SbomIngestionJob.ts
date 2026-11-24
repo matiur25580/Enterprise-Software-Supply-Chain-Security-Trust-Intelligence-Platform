@@ -1,20 +1,10 @@
 import { Schema, model, models, type Model } from "mongoose";
 
-const jobPayloadSchema = new Schema({
-  format: { type: String, enum: ["cyclonedx", "spdx"], required: true },
-  formatVersion: { type: String, required: true, maxlength: 40 },
-  documentName: { type: String, required: true, maxlength: 200 },
-  documentVersion: { type: String, maxlength: 100 },
-  componentCount: { type: Number, required: true, min: 0, max: 10000 },
-  documentDigest: { type: String, required: true, match: /^[a-f0-9]{64}$/ },
-  normalizedComponents: { type: [Schema.Types.Mixed], required: true },
-  normalizedDependencies: { type: [Schema.Types.Mixed], required: true }
-}, { _id: false, strict: "throw" });
-
 const sbomIngestionJobSchema = new Schema({
   tenantId: { type: String, required: true, trim: true, maxlength: 120 },
   status: { type: String, enum: ["queued", "processing", "completed", "failed"], required: true, default: "queued" },
-  payload: { type: jobPayloadSchema, required: true },
+  // Raw JSON is retained only while queued/processing and removed at terminal state.
+  rawDocument: { type: Schema.Types.Mixed, required: true },
   source: { type: String, maxlength: 500 },
   attempts: { type: Number, required: true, default: 0, min: 0, max: 3 },
   maxAttempts: { type: Number, required: true, default: 3, min: 1, max: 3 },
