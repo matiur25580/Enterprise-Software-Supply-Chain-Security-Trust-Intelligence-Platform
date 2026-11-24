@@ -10,7 +10,7 @@ export const trustRouter = Router();
 trustRouter.use(rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }));
 const historyLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false });
 const verificationLimiter = rateLimit({
-  windowMs: 60_000, limit: 5, standardHeaders: true, legacyHeaders: false,
+  windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false,
   message: { error: "Provenance verification rate limit exceeded; retry shortly." }
 });
 const verificationInput = z.object({
