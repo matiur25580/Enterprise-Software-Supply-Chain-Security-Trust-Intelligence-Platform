@@ -7,7 +7,11 @@ const ISSUER = "chainproof-api";
 const AUDIENCE = "chainproof-client";
 
 export async function authenticate(request: Request, response: Response, next: NextFunction): Promise<void> {
-  const token = request.header("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const authorizationHeader = request.header("authorization") ?? "";
+  const separator = authorizationHeader.indexOf(" ");
+  const token = separator > 0 && authorizationHeader.slice(0, separator).toLowerCase() === "bearer"
+    ? authorizationHeader.slice(separator + 1).trim()
+    : undefined;
   const secret = process.env.JWT_SECRET;
 
   if (!token || !secret || secret.length < 32) {
