@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { authorize } from "../middleware/authorize";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { SbomRecord } from "../models/SbomRecord";
@@ -27,7 +28,7 @@ function csvCell(value: unknown): string {
     : raw;
   return `"${safe.replace(/"/g, '""')}"`;
 }
-sbomRouter.get("/export.csv", async (request, response) => {
+sbomRouter.get("/export.csv", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   try {
     const records = await SbomRecord.find({ tenantId: request.auth!.tenantId }).sort({ createdAt: -1 }).limit(5000).lean();
     const columns = ["documentName", "documentVersion", "format", "formatVersion", "componentCount", "documentDigest", "createdAt"];
@@ -35,7 +36,7 @@ sbomRouter.get("/export.csv", async (request, response) => {
     response.setHeader("Content-Type", "text/csv; charset=utf-8").setHeader("Content-Disposition", 'attachment; filename="chainproof-sbom-inventory.csv"').status(200).send([columns.join(","), ...rows].join("\r\n"));
   } catch { response.status(500).json({ error: "Unable to export SBOM inventory" }); }
 });
-sbomRouter.get("/", async (request, response) => {
+sbomRouter.get("/", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   try {
     const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
     const filter: Record<string, unknown> = { tenantId: request.auth!.tenantId };
@@ -45,7 +46,7 @@ sbomRouter.get("/", async (request, response) => {
     response.status(200).json({ items: records, count: records.length, limit });
   } catch { response.status(500).json({ error: "Unable to load SBOM inventory" }); }
 });
-sbomRouter.post("/", intakeLimiter, async (request, response) => {
+sbomRouter.post("/", authorize("platform-admin", "security-analyst", "developer"), intakeLimiter, async (request, response) => {
   const parsed = sbomInputSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: "SBOM metadata failed validation", details: parsed.error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })) });
