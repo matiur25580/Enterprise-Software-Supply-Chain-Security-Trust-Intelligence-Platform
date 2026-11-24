@@ -30,7 +30,8 @@
     "express-rate-limit": "^7.5.0",
     "sigstore": "^4.1.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "pino": "^9.7.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
