@@ -16,7 +16,7 @@
 
 ChainProof is a security engineering portfolio project exploring how organizations can make software supply-chain risk more visible, attributable and actionable. Its product direction brings together SBOM inventory, artifact integrity, build provenance, vulnerability context and policy-based release assurance.
 
-The current runnable milestone provides tenant-aware authentication, SBOM metadata inventory, bounded CycloneDX/SPDX JSON document ingestion and normalization, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It does **not** yet query vulnerability feeds, verify artifact signatures or make production release decisions.
+The current runnable milestone provides tenant-aware authentication, SBOM metadata inventory, bounded CycloneDX/SPDX JSON document ingestion and normalization, on-demand OSV vulnerability lookup, digest uniqueness controls, search/filter/export, health checks and a React dashboard. It does **not** yet query vulnerability feeds, verify artifact signatures or make production release decisions.
 
 **Project status:** active engineering foundation / demonstrable MVP. The screenshots in this README are illustrative dashboard concepts made with synthetic data; they are not captures of a live production system.
 
@@ -43,6 +43,7 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 - **Inventory discovery:** search by document name and filter by SBOM format.
 - **Controlled export:** tenant-scoped CSV export with quoting and spreadsheet-formula injection protection.
 - **Integrity metadata:** duplicate SHA-256 digest prevention within a tenant.
+- **OSV vulnerability lookup:** on-demand batch lookup for up to 100 unique package URLs from a tenant-owned SBOM, with advisory IDs, aliases, summaries and safe HTTPS references.
 - **Abuse controls:** bounded request payloads and rate-limited intake/login endpoints.
 - **Operational health:** API health and database-aware readiness endpoints.
 - **Container foundation:** multi-stage Docker build, non-root runtime and Compose-managed MongoDB.
@@ -53,7 +54,7 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 
 - Full upstream CycloneDX/SPDX JSON Schema validation, relationship/graph preservation and robust package identity reconciliation.
 - Package URL (purl) identity resolution and component relationship graphs.
-- Vulnerability enrichment using OSV/NVD and exploitability context such as EPSS/KEV.
+- Additional vulnerability intelligence from NVD, EPSS and CISA KEV, with deployment-aware exploitability context.
 - Artifact digest verification and Sigstore/Cosign signature validation.
 - SLSA-aligned build provenance and trusted-builder policy.
 - Policy-as-code with versioned controls, explainable decisions and signed release attestations.
@@ -164,6 +165,17 @@ npm run user:create
 ```
 
 Use the CLI prompts; do not commit credentials or share a demo password in screenshots.
+
+### Check an SBOM against OSV
+
+After ingesting a document, use its MongoDB record ID to request an on-demand vulnerability lookup:
+
+```bash
+curl -X POST http://localhost:4000/api/sboms/<sbom-record-id>/vulnerabilities \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+The endpoint checks up to 100 unique PURLs using the public OSV batch API. It only sends package URLs—not raw SBOM documents, tenant identifiers or source repository metadata. Results are returned to the caller and are not persisted in this milestone. Requests are tenant-scoped and rate-limited; an SBOM with no PURLs returns an empty result. OSV availability is an external dependency, and upstream errors are surfaced rather than represented as a clean scan.
 
 ### Ingest a CycloneDX or SPDX JSON document
 
