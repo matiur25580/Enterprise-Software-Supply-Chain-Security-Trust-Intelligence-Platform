@@ -61,13 +61,13 @@ sbomRouter.post("/:id/vulnerabilities", authorize("platform-admin", "security-an
     return;
   }
   try {
-    const record = await SbomRecord.findOne({ _id: request.params.id, tenantId: request.auth!.tenantId }).lean();
+    const record: any = await SbomRecord.findOne({ _id: request.params.id, tenantId: request.auth!.tenantId }).lean();
     if (!record) {
       response.status(404).json({ error: "SBOM record not found" });
       return;
     }
     const components = Array.isArray(record.normalizedComponents) ? record.normalizedComponents : [];
-    const purls = [...new Set(components.flatMap((component: Record<string, unknown>) =>
+    const purls: string[] = [...new Set<string>(components.flatMap((component: Record<string, unknown>) =>
       typeof component.purl === "string" ? [component.purl] : []
     ))];
     if (purls.length > 100) {
