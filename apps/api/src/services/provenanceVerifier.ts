@@ -73,13 +73,15 @@ export async function verifySlsaProvenance(artifactBase64: string, bundle: unkno
     throw new ProvenanceVerificationError("policy_not_configured");
   }
   const artifact = decodeBase64(artifactBase64, 1024 * 1024);
-  const serializedBundle = isRecord(bundle) ? JSON.stringify(bundle) : undefined;
+  const bundleRecord = isRecord(bundle) ? bundle : undefined;
+  const serializedBundle = bundleRecord ? JSON.stringify(bundleRecord) : undefined;
+  const dsseEnvelope = bundleRecord && isRecord(bundleRecord.dsseEnvelope) ? bundleRecord.dsseEnvelope : undefined;
   if (!serializedBundle || Buffer.byteLength(serializedBundle, "utf8") > 512 * 1024 ||
-      !isRecord(bundle.dsseEnvelope) || typeof bundle.dsseEnvelope.payload !== "string") {
+      !dsseEnvelope || typeof dsseEnvelope.payload !== "string") {
     throw new ProvenanceVerificationError("invalid_bundle");
   }
   try {
-    await verify(bundle as never, undefined, {
+    await verify(bundle as never, undefined as unknown as Buffer, {
       certificateIssuer: issuer,
       certificateIdentity: identity
     } as never);
@@ -89,7 +91,7 @@ export async function verifySlsaProvenance(artifactBase64: string, bundle: unkno
 
   let statement: unknown;
   try {
-    statement = JSON.parse(decodeBase64(bundle.dsseEnvelope.payload, 512 * 1024).toString("utf8"));
+    statement = JSON.parse(decodeBase64(dsseEnvelope.payload, 512 * 1024).toString("utf8"));
   } catch (error) {
     if (error instanceof ProvenanceVerificationError) throw error;
     throw new ProvenanceVerificationError("provenance_invalid");
