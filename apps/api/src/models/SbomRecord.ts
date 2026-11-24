@@ -3,6 +3,7 @@ import { Schema, model, models, type Model } from "mongoose";
 const sbomRecordSchema = new Schema({
   // Tenant ownership must be derived from authenticated server context.
   tenantId: { type: String, required: true, trim: true, maxlength: 120 },
+  ingestionJobId: { type: Schema.Types.ObjectId, ref: "SbomIngestionJob" },
   format: { type: String, enum: ["cyclonedx", "spdx"], required: true },
   formatVersion: { type: String, required: true, maxlength: 40 },
   documentName: { type: String, required: true, trim: true, maxlength: 200 },
@@ -27,6 +28,7 @@ const sbomRecordSchema = new Schema({
 // Tenant-scoped listing is the expected access pattern; do not query this
 // collection by document ID alone in authenticated application services.
 sbomRecordSchema.index({ tenantId: 1, createdAt: -1 });
+sbomRecordSchema.index({ tenantId: 1, ingestionJobId: 1 }, { unique: true, partialFilterExpression: { ingestionJobId: { $type: "objectId" } } });
 sbomRecordSchema.index({ tenantId: 1, documentDigest: 1 }, { unique: true, partialFilterExpression: { documentDigest: { $type: "string" } } });
 
 const existingSbomRecordModel = models.SbomRecord as Model<any> | undefined;
