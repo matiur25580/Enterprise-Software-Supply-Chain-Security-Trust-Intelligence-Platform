@@ -177,3 +177,21 @@ npm run build
 ```
 
 The tests cover SBOM validation, tenant-scoped queries, digest conflicts, CSV escaping/formula protection, JWT account revalidation, role authorization, and dashboard rendering. GitHub Actions runs tests, type checks, and production builds on pushes and pull requests.
+
+
+## Container workflow
+
+A local Docker Compose stack runs the API/web application with MongoDB. It is intended for development and portfolio demonstrations, not as a hardened production deployment.
+
+```bash
+# Create a local-only secret (keep .env out of version control).
+printf 'JWT_SECRET=%s\n' "$(openssl rand -base64 48)" > .env
+
+docker compose up --build -d
+docker compose ps
+docker compose logs -f app
+```
+
+Open http://localhost:4000. The API readiness endpoint is available at `/api/health/ready`; Compose waits for MongoDB to pass its health check before starting the app. MongoDB is reachable only on the Compose network and its data is stored in a named volume. Stop the stack with `docker compose down`; this preserves the database volume.
+
+The image uses a multi-stage Node build and runs as the unprivileged `node` user. For production, use a managed MongoDB deployment with authentication and TLS, a managed secret store, restricted network ingress, backups, monitoring and an explicit deployment review. Do not reuse local secrets in production.
