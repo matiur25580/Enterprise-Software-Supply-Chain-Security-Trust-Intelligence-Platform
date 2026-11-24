@@ -45,6 +45,10 @@ if (fs.existsSync(webDist)) {
 }
 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
+  if (typeof error === "object" && error !== null && "type" in error && error.type === "entity.too.large") {
+    response.status(413).json({ error: "Request body exceeds the 2 MiB limit" });
+    return;
+  }
   if (error instanceof SyntaxError) {
     response.status(400).json({ error: "Invalid JSON request body" });
     return;

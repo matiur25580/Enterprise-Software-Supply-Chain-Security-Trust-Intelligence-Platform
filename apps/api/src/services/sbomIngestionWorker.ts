@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { SbomIngestionJob } from "../models/SbomIngestionJob";
 import { SbomRecord } from "../models/SbomRecord";
+import { parseSbomDocument, SbomValidationError } from "./sbomParser";
 
 const POLL_INTERVAL_MS = 1_000;
 const LEASE_DURATION_MS = 60_000;
@@ -15,7 +16,7 @@ export async function processNextSbomIngestionJob(now = new Date()): Promise<boo
     { status: "processing", lockedAt: { $lte: leaseExpiredAt }, attempts: { $gte: 3 } },
     {
       $set: { status: "failed", lastError: "Worker lease expired after the maximum retry count.", completedAt: now, expiresAt: new Date(now.getTime() + RETENTION_MS) },
-      $unset: { payload: 1, lockedAt: 1, workerId: 1 }
+      $unset: { rawDocument: 1, lockedAt: 1, workerId: 1 }
     }
   );
   const job: any = await SbomIngestionJob.findOneAndUpdate(
@@ -33,7 +34,7 @@ export async function processNextSbomIngestionJob(now = new Date()): Promise<boo
   if (!job) return false;
 
   try {
-    const payload = job.payload;
+    const payload = parseSbomDocument(job.rawDocument);
     const record: any = await SbomRecord.findOneAndUpdate(
       { tenantId: job.tenantId, ingestionJobId: job._id },
       {
@@ -52,23 +53,26 @@ export async function processNextSbomIngestionJob(now = new Date()): Promise<boo
       { _id: job._id, workerId },
       {
         $set: { status: "completed", sbomId: record._id, completedAt: now, expiresAt: new Date(now.getTime() + RETENTION_MS) },
-        $unset: { payload: 1, lockedAt: 1, workerId: 1, lastError: 1 }
+        $unset: { rawDocument: 1, lockedAt: 1, workerId: 1, lastError: 1 }
       }
     );
     return true;
   } catch (error) {
     const duplicateDigest = typeof error === "object" && error !== null && "code" in error && error.code === 11000;
-    const terminal = job.attempts >= job.maxAttempts || duplicateDigest;
-    const message = duplicateDigest
-      ? "An SBOM with this digest already exists in this tenant."
-      : terminal ? "SBOM persistence failed after the maximum retry count." : "SBOM persistence failed; retry scheduled.";
+    const invalidDocument = error instanceof SbomValidationError;
+    const terminal = job.attempts >= job.maxAttempts || duplicateDigest || invalidDocument;
+    const message = invalidDocument
+      ? "SBOM document failed official schema validation or normalization."
+      : duplicateDigest
+        ? "An SBOM with this digest already exists in this tenant."
+        : terminal ? "SBOM persistence failed after the maximum retry count." : "SBOM persistence failed; retry scheduled.";
     const delayMs = Math.min(30_000, 1_000 * (2 ** Math.max(0, job.attempts - 1)));
     await SbomIngestionJob.updateOne(
       { _id: job._id, workerId },
       terminal
         ? {
             $set: { status: "failed", lastError: message, completedAt: now, expiresAt: new Date(now.getTime() + RETENTION_MS) },
-            $unset: { payload: 1, lockedAt: 1, workerId: 1 }
+            $unset: { rawDocument: 1, lockedAt: 1, workerId: 1 }
           }
         : {
             $set: { status: "queued", lastError: message, availableAt: new Date(now.getTime() + delayMs) },

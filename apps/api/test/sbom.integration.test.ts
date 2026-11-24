@@ -93,7 +93,7 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     expect(otherTenant.status).toBe(404);
   });
 
-  it("queues a durable normalized SBOM job and exposes status only to its tenant", async () => {
+  it("queues a raw SBOM document, validates it in the worker, and exposes status only to its tenant", async () => {
     const queued = await request(app).post("/api/sboms/document/async").set("x-test-tenant", "tenant-a").send({
       source: "ci://pipeline/42",
       document: {
@@ -121,6 +121,25 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     const otherTenant = await request(app).get(queued.body.statusUrl).set("x-test-tenant", "tenant-b");
     expect(otherTenant.status).toBe(404);
     expect(await SbomIngestionJob.countDocuments({ tenantId: "tenant-a" })).toBe(1);
+  });
+
+  it("marks invalid async SBOM documents failed in the worker and removes the raw payload", async () => {
+    const queued = await request(app).post("/api/sboms/document/async").set("x-test-tenant", "tenant-a").send({
+      document: { bomFormat: "CycloneDX", specVersion: "1.6", version: "invalid", components: [] }
+    });
+    expect(queued.status, JSON.stringify(queued.body)).toBe(202);
+
+    await expect(processNextSbomIngestionJob()).resolves.toBe(true);
+    const status = await request(app).get(queued.body.statusUrl).set("x-test-tenant", "tenant-a");
+    expect(status.status).toBe(200);
+    expect(status.body).toMatchObject({
+      status: "failed",
+      attempts: 1,
+      error: "SBOM document failed official schema validation or normalization."
+    });
+    const job = await SbomIngestionJob.findOne({ _id: queued.body.jobId, tenantId: "tenant-a" }).lean();
+    expect(job?.rawDocument).toBeUndefined();
+    expect(await SbomRecord.countDocuments({ tenantId: "tenant-a" })).toBe(0);
   });
 
   it("enforces the tenant-scoped unique digest index", async () => {

@@ -141,19 +141,29 @@ sbomRouter.get("/:id/vulnerability-scans", sbomReadLimiter, authorize("platform-
   }
 });
 
-/** Queue validated, normalized SBOM data for durable asynchronous persistence. */
+/** Queue a bounded raw SBOM document for isolated worker-side schema validation and normalization. */
 sbomRouter.post("/document/async", sbomReadLimiter, authorize("platform-admin", "security-analyst", "developer"), intakeLimiter, async (request, response) => {
   const input = z.object({ document: z.unknown(), source: z.string().max(500).optional() }).strict().safeParse(request.body);
-  if (!input.success) {
-    response.status(400).json({ error: "SBOM upload request is invalid" });
+  if (!input.success || typeof input.data.document !== "object" || input.data.document === null || Array.isArray(input.data.document)) {
+    response.status(400).json({ error: "SBOM upload request must contain a JSON document object" });
+    return;
+  }
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(input.data.document);
+  } catch {
+    response.status(400).json({ error: "SBOM document is not valid JSON data" });
+    return;
+  }
+  if (Buffer.byteLength(serialized, "utf8") > 2 * 1024 * 1024) {
+    response.status(413).json({ error: "SBOM document exceeds the 2 MiB ingestion limit" });
     return;
   }
   try {
-    const parsed = parseSbomDocument(input.data.document);
     const job = await SbomIngestionJob.create({
       tenantId: request.auth!.tenantId,
       status: "queued",
-      payload: parsed,
+      rawDocument: input.data.document,
       source: input.data.source,
       attempts: 0,
       maxAttempts: 3,
@@ -163,13 +173,9 @@ sbomRouter.post("/document/async", sbomReadLimiter, authorize("platform-admin", 
       status: "queued",
       jobId: String(job._id),
       statusUrl: `/api/sboms/ingestion-jobs/${job._id}`,
-      message: "SBOM schema validation and normalization completed. Durable inventory persistence is queued."
+      message: "SBOM document accepted. Official schema validation and normalization will run in the background."
     });
-  } catch (error) {
-    if (error instanceof SbomValidationError) {
-      response.status(400).json({ error: "SBOM document failed validation", reason: error.message });
-      return;
-    }
+  } catch {
     response.status(500).json({ error: "Unable to queue SBOM ingestion" });
   }
 });

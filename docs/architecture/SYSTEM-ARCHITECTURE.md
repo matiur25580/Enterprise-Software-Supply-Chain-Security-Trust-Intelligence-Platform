@@ -16,7 +16,8 @@ flowchart TB
         Edge["HTTPS boundary · CORS · Helmet · rate limits"]
         Auth["JWT authentication · role authorization"]
         Validate["Zod request validation"]
-        SBOM["SBOM intake · schema validation · normalization"]
+        SBOM["SBOM intake · bounded enqueue"]
+        SBOMWorker["Background worker · official schema validation · normalization"]
         Vuln["Vulnerability intelligence · scan snapshots"]
         Verify["Artifact trust verification · Cosign / SLSA"]
         Policy["Deterministic release-policy evaluation"]
@@ -24,6 +25,7 @@ flowchart TB
         Signers["Tenant-scoped signer registry"]
         Edge --> Auth --> Validate
         Validate --> SBOM
+        SBOM --> SBOMWorker
         Validate --> Vuln
         Validate --> Verify
         Validate --> Policy
@@ -37,7 +39,7 @@ flowchart TB
     Sigstore["Sigstore / Fulcio / Rekor verification material"]
 
     Web -->|"HTTPS · JSON · Bearer JWT"| Edge
-    SBOM --> DB
+    SBOMWorker --> DB
     Vuln <--> DB
     Vuln -->|"package URL batch lookup"| OSV
     Vuln -->|"CVE alias enrichment"| Context
@@ -54,7 +56,7 @@ flowchart TB
 |---|---|
 | Web dashboard | Presents inventory, vulnerability, verification, policy and passport evidence |
 | API security boundary | Authenticates requests, applies role checks, validates input and enforces request limits |
-| SBOM intake | Validates supported CycloneDX/SPDX JSON, normalizes component metadata and persists tenant-scoped summaries |
+| SBOM intake + worker | API enforces a 2 MiB bound and durably queues raw JSON; the background worker applies official CycloneDX/SPDX schemas, complexity checks, normalization and tenant-scoped persistence. Raw payloads are deleted at terminal state |
 | Vulnerability intelligence | Queries OSV and enriches CVE aliases with KEV/EPSS context; stores scan snapshots |
 | Artifact trust verification | Verifies supplied artifact bytes against configured Cosign identity and SLSA builder policies |
 | Release policy | Evaluates persisted evidence using versioned deterministic rules and stores pass/warn/block outcomes |
@@ -131,7 +133,7 @@ The trust store must be obtained through an authenticated channel independent of
 
 ## 4. Trust boundaries and operational rules
 
-1. **Browser → API:** use TLS; API derives tenant identity from the authenticated principal, not caller-supplied tenant IDs.
+1. **Browser → API:** use TLS; API derives tenant identity from the authenticated principal, not caller-supplied tenant IDs. Async SBOM intake is capped at 2 MiB; pending raw JSON is temporarily stored in MongoDB and removed on completion or failure.
 2. **API → MongoDB:** keep tenant-scoped queries and least-privilege database credentials.
 3. **API → external intelligence providers:** bound payloads, timeouts and retries; treat provider data as untrusted input.
 4. **Artifact/provenance verification:** bind verification to exact artifact bytes and explicit server-side signer/builder identity policies.
@@ -140,7 +142,7 @@ The trust store must be obtained through an authenticated channel independent of
 
 ## 5. Current scope versus planned evolution
 
-The current runtime is a TypeScript modular monolith with MongoDB persistence. Dedicated queues/workers, Redis coordination, object storage for large evidence, and independently deployable domain services remain architectural evolution options; they are not implied by the runtime diagram above.
+The current runtime is a TypeScript modular monolith with MongoDB persistence. The current runtime includes a MongoDB-backed durable SBOM queue and an in-process worker with atomic leases and bounded retries. Dedicated independently deployed worker processes, Redis coordination and object storage for large evidence remain future evolution options.
 
 ## 6. Useful local commands
 

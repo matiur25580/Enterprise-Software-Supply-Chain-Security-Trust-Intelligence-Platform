@@ -58,7 +58,7 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 
 ### Product roadmap — not represented as shipped functionality
 
-- Move schema validation and normalization into isolated workers so large-document parsing also runs asynchronously; add streaming uploads and explicit worker scaling controls.
+- Move CPU-intensive validation into independently deployed worker processes with separate scaling controls; add streaming uploads for larger SBOMs.
 - Package URL (purl) identity resolution and component relationship graphs.
 - NVD enrichment, deployment-aware exploitability context and policy-based prioritization of persisted findings.
 - OCI image signature verification and registry-aware Cosign verification.
@@ -432,7 +432,7 @@ An audit-oriented view of control coverage, evidence freshness, exceptions and r
 
 ## Asynchronous SBOM ingestion
 
-The existing `POST /api/sboms/document` endpoint remains synchronous for compatibility. For durable background persistence after validation and normalization, use `POST /api/sboms/document/async`:
+The existing `POST /api/sboms/document` endpoint remains synchronous for compatibility. For durable background validation, normalization and persistence, use `POST /api/sboms/document/async`:
 
 ```bash
 jq -n --slurpfile sbom ./sbom.json '{document: $sbom[0], source: "ci://pipeline/42"}' > sbom-request.json
@@ -450,7 +450,7 @@ curl --fail-with-body -sS "$CHAINPROOF_API_URL$(jq -r '.statusUrl' enqueue-respo
   -H "Authorization: Bearer $CHAINPROOF_TOKEN"
 ```
 
-Job states are `queued`, `processing`, `completed` and `failed`. Transient persistence errors are retried at most three times with bounded backoff. Worker leases allow another API instance to recover work after a worker crash; SBOM writes are idempotent per ingestion job. Job status and error metadata expire seven days after a terminal state. The queue stores normalized data only, not the original SBOM document. This first stage moves durable inventory persistence to the worker; schema validation and normalization still happen in the request process.
+Job states are `queued`, `processing`, `completed` and `failed`. Transient persistence errors are retried at most three times with bounded backoff. Worker leases allow another API instance to recover work after a worker crash; SBOM writes are idempotent per ingestion job. Job status and error metadata expire seven days after a terminal state. The queue temporarily stores the bounded raw JSON document (maximum 2 MiB) so official CycloneDX/SPDX schema validation, complexity checks and normalization run in the background worker. The raw document is deleted when the job reaches a terminal state; only normalized inventory remains. Invalid documents fail without consuming database-retry attempts. Keep MongoDB queue storage encrypted and access-controlled because pending jobs temporarily contain source SBOM data.
 
 ## Signed Release Trust Passport
 
