@@ -27,3 +27,5 @@ jobs:
         run: npm run typecheck
       - name: Build API and web
         run: npm run build
+      - name: Build production container image
+        run: docker build --tag chainproof-ci .
