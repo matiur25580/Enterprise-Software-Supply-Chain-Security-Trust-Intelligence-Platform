@@ -408,6 +408,46 @@ An audit-oriented view of control coverage, evidence freshness, exceptions and r
 
 ![Illustrative ChainProof dashboard — compliance assurance report](docs/assets/dashboard/12-compliance-assurance-report.svg)
 
+
+## Signed Release Trust Passport
+
+ChainProof can issue a portable evidence envelope for a persisted release-policy evaluation. The passport combines the tenant-owned SBOM summary, the latest available OSV scan snapshot, matching verified SLSA provenance metadata, and the exact policy decision. It is signed with Ed25519 and can be verified offline.
+
+### Configure the signing key
+
+Generate a dedicated Ed25519 key pair. Keep the private key in a secret manager or deployment secret; never commit it to Git or expose it to the browser.
+
+```bash
+openssl genpkey -algorithm ED25519 -out release-passport-private.pem
+openssl pkey -in release-passport-private.pem -pubout -out release-passport-public.pem
+# For local development only: export the PEM as a single-line value with escaped newlines.
+export RELEASE_PASSPORT_PRIVATE_KEY="$(awk 'NF {sub(/\r/, ""); printf "%s\\n", $0}' release-passport-private.pem)"
+```
+
+Set `RELEASE_PASSPORT_PRIVATE_KEY` in the API runtime secret store. The API accepts only Ed25519 keys. Do not use a shared development key in production. Rotate keys using a controlled key-management process and retain the public keys needed to verify previously issued passports.
+
+### Issue, retrieve and verify
+
+After creating a release-policy evaluation, issue a passport with its returned `evaluationId`:
+
+```bash
+curl --fail-with-body -sS -X POST "$CHAINPROOF_API_URL/api/policy/release-passports" \
+  -H "Authorization: Bearer $CHAINPROOF_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"evaluationId\":\"$EVALUATION_ID\"}" > release-passport-response.json
+
+jq '.passport' release-passport-response.json > release-passport.json
+npm run passport:verify -- --file release-passport.json
+```
+
+The tenant-scoped API also supports:
+- `GET /api/policy/release-passports?limit=20` — list recent passport metadata.
+- `GET /api/policy/release-passports/{passportId}` — retrieve a passport and verify its signature server-side.
+
+The offline verifier exits with code `0` for a valid signature, `2` for an invalid or tampered passport, and `1` for usage or file errors.
+
+**Trust boundary:** the embedded public key and its fingerprint prove that the payload has not changed relative to that key. They do not, by themselves, establish that the signer is an organization you trust. Consumers must pin or otherwise authenticate the expected public-key fingerprint through a trusted out-of-band channel. The passport is an evidence snapshot, not a guarantee that an artifact is safe or that a release was deployed. A later scan or provenance update does not mutate an already-issued passport.
+
 ## 10. Repository map
 
 ```text
@@ -428,13 +468,12 @@ docker-compose.yml
 
 ## 11. Engineering principles and next milestones
 
-1. Implement safe SBOM file ingestion with format-aware validation and asynchronous processing.
-2. Normalize package identity with purl and preserve dependency relationships.
-3. Integrate vulnerability intelligence with source attribution and freshness metadata.
-4. Verify artifact signatures and provenance against configured trust roots.
-5. Introduce versioned policy-as-code and auditable exception workflows.
-6. Add browser E2E tests and operational runbooks.
-7. Add metrics, tracing, alerting, backup/restore exercises and deployment hardening.
+1. Complete full official CycloneDX/SPDX schema validation, dependency graph preservation and asynchronous ingestion.
+2. Add registry-aware OCI artifact retrieval and digest verification.
+3. Add externally anchored passport signer trust, key rotation and revocation workflows.
+4. Introduce configurable policy authoring, approval and exception workflows.
+5. Add browser E2E tests and operational runbooks.
+6. Add metrics, tracing, alerting, backup/restore exercises and deployment hardening.
 
 ## 12. Responsible use and disclosure
 
