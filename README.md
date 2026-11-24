@@ -83,7 +83,7 @@ Express + TypeScript API
           |
           v
        MongoDB
-  users / SBOMs / vulnerability scans / trust audit / policy evaluations
+  users / SBOMs / vulnerability scans / trust audit / policy evaluations / signed release passports
 ```
 
 ### Technology stack
@@ -274,6 +274,48 @@ npm run policy:evaluate -- --sbom-id '<24-character-sbom-id>' --artifact-sha256 
 
 The CLI prints the full JSON decision. Exit codes: `0` for pass/warn or a successful API response, `1` for input/network/API errors, and `2` when the policy outcome is block. The audit history is available from `GET /api/policy/evaluations` and is restricted to the authenticated tenant.
 
+### Issue and verify a signed Release Trust Passport
+
+A Release Trust Passport is a portable evidence envelope that binds one artifact SHA-256 digest to the selected SBOM, latest available OSV scan snapshot, matching verified SLSA provenance (when present), and a versioned release-policy evaluation. It is signed with an Ed25519 private key. The API persists only the evidence metadata and signature—not artifact bytes or the original SBOM.
+
+**Configure a persistent signing key** (keep it outside Git and store it in a production secret manager):
+
+```bash
+openssl genpkey -algorithm ED25519 -out release-passport-private.pem
+chmod 600 release-passport-private.pem
+export RELEASE_PASSPORT_PRIVATE_KEY="$(cat release-passport-private.pem)"
+```
+
+For Docker Compose, export the same variable before `docker compose up`. If the signing key is absent, passport issuance returns `503`; existing passports remain independently verifiable because each envelope carries its public key and SHA-256 key fingerprint. Treat that fingerprint as a trust anchor and distribute it through a trusted channel. The embedded public key proves integrity, not organizational identity by itself.
+
+**Issue a passport** after evaluating release policy:
+
+```bash
+curl -X POST http://localhost:4000/api/policy/release-passports \
+  -H 'Authorization: Bearer <access-token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"evaluationId":"<24-character-policy-evaluation-id>"}'
+```
+
+**List and retrieve passports** (all results are tenant-scoped):
+
+```bash
+curl http://localhost:4000/api/policy/release-passports \
+  -H 'Authorization: Bearer <access-token>'
+curl http://localhost:4000/api/policy/release-passports/<passport-uuid> \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+The retrieval endpoint verifies the Ed25519 signature and public-key fingerprint before returning `signatureValid`. A passport may document a `block` decision too; issuance is an evidence-recording operation, not a release authorization.
+
+**Offline verification:** save the API response as `release-passport.json`, then run:
+
+```bash
+npm run passport:verify -- --file ./release-passport.json
+```
+
+Exit codes: `0` valid signature, `1` input/file error, `2` invalid signature or tampered payload. The verifier is offline and checks integrity/fingerprint consistency; consumers must separately trust the published key fingerprint and review the policy version and evidence semantics.
+
 ## 7. Environment configuration
 
 | Variable | Purpose | Example / requirement |
@@ -283,7 +325,7 @@ The CLI prints the full JSON decision. Exit codes: `0` for pass/warn or a succes
 | `HOST` | API bind interface | `0.0.0.0` in containers |
 | `CORS_ORIGIN` | Allowed browser origin(s) | `http://localhost:5173` |
 | `NODE_ENV` | Runtime mode | `development` or `production` |
-| `JWT_SECRET` | JWT signing secret | Random secret, minimum 32 characters |\n| `SIGSTORE_CERTIFICATE_ISSUER` | Required OIDC issuer for keyless verification | Exact issuer URL |\n| `SIGSTORE_CERTIFICATE_IDENTITY` | Required signer certificate identity | Exact workflow or signer identity |\n| `SLSA_ALLOWED_BUILDERS` | Allowed SLSA builder IDs | Comma-separated exact builder IDs |
+| `JWT_SECRET` | JWT signing secret | Random secret, minimum 32 characters |\n| `SIGSTORE_CERTIFICATE_ISSUER` | Required OIDC issuer for keyless verification | Exact issuer URL |\n| `SIGSTORE_CERTIFICATE_IDENTITY` | Required signer certificate identity | Exact workflow or signer identity |\n| `SLSA_ALLOWED_BUILDERS` | Allowed SLSA builder IDs | Comma-separated exact builder IDs |\n| `RELEASE_PASSPORT_PRIVATE_KEY` | Ed25519 PKCS#8 PEM signing key | Store in a secret manager; never commit it |
 
 Never use the example JWT value outside local setup. Production should use managed secrets, TLS, authenticated MongoDB, network restrictions, backups and monitored operations.
 
@@ -374,7 +416,7 @@ apps/
   web/                 React dashboard and UI tests
 scripts/
   create-user.ts       Operator account provisioning
-  ensure-indexes.ts    Explicit database index provisioning
+  ensure-indexes.ts    Explicit database index provisioning\n  evaluate-release-policy.ts  Release policy CLI\n  verify-release-passport.ts   Offline passport signature verifier
 docs/
   assets/dashboard/    12 illustrative SVG dashboard concepts
 .github/
