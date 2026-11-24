@@ -483,7 +483,7 @@ docker-compose.yml
 
 ## 11. Engineering principles and next milestones
 
-1. Complete full official CycloneDX/SPDX schema validation, dependency graph preservation and asynchronous ingestion.
+1. Add durable asynchronous SBOM ingestion with bounded job retries and operational status tracking. Official CycloneDX 1.4/1.5/1.6 and SPDX 2.3 JSON Schema validation plus dependency/relationship graph preservation are implemented.
 2. Add registry-aware OCI artifact retrieval and digest verification.
 3. Add externally anchored passport signer trust, key rotation and revocation workflows.
 4. Introduce configurable policy authoring, approval and exception workflows.
