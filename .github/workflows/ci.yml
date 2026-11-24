@@ -1,4 +1,4 @@
-name: CareMesh CI
+name: ChainProof CI
 
 on:
   push:
@@ -36,10 +36,10 @@ jobs:
       - name: Run real MongoDB integration tests
         run: npm run test:integration
         env:
-          MONGODB_URI: mongodb://127.0.0.1:27017/caremesh_ci
+          MONGODB_URI: mongodb://127.0.0.1:27017/chainproof_ci
       - name: Type-check API and web
         run: npm run typecheck
       - name: Build API and web
         run: npm run build
       - name: Build production container image
-        run: docker build --tag caremesh-ci .
+        run: docker build --tag chainproof-ci .
