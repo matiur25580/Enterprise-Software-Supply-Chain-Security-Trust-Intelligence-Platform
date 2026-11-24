@@ -3,16 +3,18 @@ import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../src/models/ArtifactVerification", () => ({ ArtifactVerification: { create: vi.fn(), find: vi.fn() } }));
 vi.mock("../src/services/provenanceVerifier", () => ({
+  verifyArtifactSignature: vi.fn(),
   verifySlsaProvenance: vi.fn(),
   ProvenanceVerificationError: class ProvenanceVerificationError extends Error { constructor(public code: string) { super(code); } }
 }));
 import { ArtifactVerification } from "../src/models/ArtifactVerification";
-import { verifySlsaProvenance, ProvenanceVerificationError } from "../src/services/provenanceVerifier";
+import { verifyArtifactSignature, verifySlsaProvenance, ProvenanceVerificationError } from "../src/services/provenanceVerifier";
 import { trustRouter } from "../src/routes/trust";
 
 const create = vi.mocked(ArtifactVerification.create);
 const find = vi.mocked(ArtifactVerification.find);
 const verifyProvenance = vi.mocked(verifySlsaProvenance);
+const verifySignature = vi.mocked(verifyArtifactSignature);
 const app = express();
 app.use(express.json({ limit: "2mb" }));
 app.use((req, _res, next) => {
@@ -32,6 +34,20 @@ const summary = {
 };
 describe("tenant-scoped trust verification API", () => {
   beforeEach(() => vi.clearAllMocks());
+  it("verifies and audits a Cosign artifact signature", async () => {
+    verifySignature.mockResolvedValue({
+      artifactDigest: "a".repeat(64), certificateIssuer: summary.certificateIssuer,
+      certificateIdentity: summary.certificateIdentity
+    });
+    create.mockResolvedValue({ _id: "signature-1", createdAt: new Date("2026-11-24T00:00:00Z") } as never);
+    const response = await request(app).post("/api/trust/verify-artifact-signature")
+      .send({ artifactBase64, bundle: { messageSignature: { signature: "c2ln" } } });
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe("verified");
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: "tenant-a", verificationType: "sigstore-artifact-signature", status: "verified"
+    }));
+  });
   it("persists successful provenance verification without storing artifact or bundle bytes", async () => {
     verifyProvenance.mockResolvedValue(summary);
     create.mockResolvedValue({ _id: "verification-1", createdAt: new Date("2026-11-24T00:00:00Z") } as never);
