@@ -89,7 +89,7 @@ describe("tenant-scoped SBOM API", () => {
       ingestionStatus: "validated", normalizedComponents: [expect.objectContaining({ name: "express", bomRef: "pkg:express", purl: "pkg:npm/express@4.21.2" })], normalizedDependencies: [{ from: "pkg:express", to: "pkg:lodash", relationshipType: "dependsOn" }]
     }));
   });
-  it("queues validated SBOM data and returns an asynchronous job identifier", async () => {
+  it("queues raw SBOM data for background schema validation and returns a job identifier", async () => {
     jobCreate.mockResolvedValue({ _id: "507f1f77bcf86cd799439012" } as never);
     const response = await request(app).post("/api/sboms/document/async").send({
       source: "ci://build/123",
@@ -102,11 +102,26 @@ describe("tenant-scoped SBOM API", () => {
     expect(response.status).toBe(202);
     expect(response.body).toMatchObject({ status: "queued", jobId: "507f1f77bcf86cd799439012" });
     expect(response.body.statusUrl).toBe("/api/sboms/ingestion-jobs/507f1f77bcf86cd799439012");
+    expect(response.body.message).toContain("validation and normalization will run in the background");
     expect(jobCreate).toHaveBeenCalledWith(expect.objectContaining({
       tenantId: "tenant-a", status: "queued", attempts: 0, maxAttempts: 3, source: "ci://build/123",
-      payload: expect.objectContaining({ format: "cyclonedx", documentName: "checkout", normalizedComponents: [expect.objectContaining({ purl: "pkg:npm/express@4.21.2" })] })
+      rawDocument: expect.objectContaining({ bomFormat: "CycloneDX", specVersion: "1.6", components: [expect.objectContaining({ purl: "pkg:npm/express@4.21.2" })] })
     }));
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-object async SBOM document before creating a job", async () => {
+    const response = await request(app).post("/api/sboms/document/async").send({ document: ["not", "an", "object"] });
+    expect(response.status).toBe(400);
+    expect(jobCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects async SBOM documents larger than 2 MiB before creating a job", async () => {
+    const response = await request(app).post("/api/sboms/document/async").send({
+      document: { bomFormat: "CycloneDX", specVersion: "1.6", padding: "x".repeat(2 * 1024 * 1024) }
+    });
+    expect(response.status).toBe(413);
+    expect(jobCreate).not.toHaveBeenCalled();
   });
 
   it("returns tenant-scoped ingestion job status without exposing the queued payload", async () => {
