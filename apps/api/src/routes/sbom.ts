@@ -2,10 +2,13 @@ import { Router } from "express";
 import { authorize } from "../middleware/authorize";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
+import { isValidObjectId } from "mongoose";
 import { SbomRecord } from "../models/SbomRecord";
 import { parseSbomDocument, SbomValidationError } from "../services/sbomParser";
+import { queryOsvByPurls, OsvServiceError } from "../services/osvClient";
 
 const intakeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "SBOM intake rate limit exceeded; retry shortly." } });
+const vulnerabilityLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Vulnerability scan rate limit exceeded; retry shortly." } });
 export const sbomRouter = Router();
 const sbomInputSchema = z.object({
   format: z.enum(["cyclonedx", "spdx"]),
@@ -46,6 +49,53 @@ sbomRouter.get("/", authorize("platform-admin", "security-analyst", "developer",
     const records = await SbomRecord.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
     response.status(200).json({ items: records, count: records.length, limit });
   } catch { response.status(500).json({ error: "Unable to load SBOM inventory" }); }
+});
+
+
+/** On-demand OSV lookup for one tenant-owned SBOM; results are not persisted. */
+sbomRouter.post("/:id/vulnerabilities", authorize("platform-admin", "security-analyst", "developer", "auditor"), vulnerabilityLimiter, async (request, response) => {
+  if (!isValidObjectId(request.params.id)) {
+    response.status(400).json({ error: "Invalid SBOM record identifier" });
+    return;
+  }
+  try {
+    const record = await SbomRecord.findOne({ _id: request.params.id, tenantId: request.auth!.tenantId }).lean();
+    if (!record) {
+      response.status(404).json({ error: "SBOM record not found" });
+      return;
+    }
+    const components = Array.isArray(record.normalizedComponents) ? record.normalizedComponents : [];
+    const purls = [...new Set(components.flatMap((component: Record<string, unknown>) =>
+      typeof component.purl === "string" ? [component.purl] : []
+    ))];
+    if (purls.length > 100) {
+      response.status(422).json({ error: "This SBOM has more than 100 package URLs; split it into smaller inventories before scanning." });
+      return;
+    }
+    if (purls.length === 0) {
+      response.status(200).json({ status: "completed", source: "OSV", scannedPackages: 0, vulnerablePackages: 0, findings: [], message: "No package URLs were available for vulnerability lookup." });
+      return;
+    }
+    const results = await queryOsvByPurls(purls);
+    const findings = results.flatMap((result) => result.vulnerabilities.map((vulnerability) => ({
+      purl: result.purl,
+      ...vulnerability
+    })));
+    response.status(200).json({
+      status: "completed",
+      source: "OSV",
+      scannedPackages: results.length,
+      vulnerablePackages: results.filter((result) => result.vulnerabilities.length > 0).length,
+      findingCount: findings.length,
+      findings
+    });
+  } catch (error) {
+    if (error instanceof OsvServiceError) {
+      response.status(502).json({ error: "Vulnerability lookup could not be completed", reason: error.message });
+      return;
+    }
+    response.status(500).json({ error: "Unable to scan SBOM vulnerabilities" });
+  }
 });
 
 /** Accepts a bounded JSON CycloneDX or SPDX document; raw documents are not retained. */
