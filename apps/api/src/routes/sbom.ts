@@ -10,10 +10,11 @@ import { queryOsvByPurls, OsvServiceError } from "../services/osvClient";
 import { enrichExploitability } from "../services/exploitabilityEnrichment";
 import { VulnerabilityScan } from "../models/VulnerabilityScan";
 
+const sbomReadLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false });
 const intakeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "SBOM intake rate limit exceeded; retry shortly." } });
 const vulnerabilityLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Vulnerability scan rate limit exceeded; retry shortly." } });
 export const sbomRouter = Router();
-sbomRouter.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
+sbomRouter.use(sbomReadLimiter);
 const sbomInputSchema = z.object({
   format: z.enum(["cyclonedx", "spdx"]),
   formatVersion: z.string().trim().min(1).max(40),
@@ -36,7 +37,7 @@ function csvCell(value: unknown): string {
     : raw;
   return `"${safe.replace(/"/g, '""')}"`;
 }
-sbomRouter.get("/export.csv", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+sbomRouter.get("/export.csv", sbomReadLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   try {
     const records = await SbomRecord.find({ tenantId: request.auth!.tenantId }).sort({ createdAt: -1 }).limit(5000).lean();
     const columns = ["documentName", "documentVersion", "format", "formatVersion", "componentCount", "documentDigest", "createdAt"];
@@ -44,7 +45,7 @@ sbomRouter.get("/export.csv", authorize("platform-admin", "security-analyst", "d
     response.setHeader("Content-Type", "text/csv; charset=utf-8").setHeader("Content-Disposition", 'attachment; filename="chainproof-sbom-inventory.csv"').status(200).send([columns.join(","), ...rows].join("\r\n"));
   } catch { response.status(500).json({ error: "Unable to export SBOM inventory" }); }
 });
-sbomRouter.get("/", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+sbomRouter.get("/", sbomReadLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   try {
     const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
     const filter: Record<string, unknown> = { tenantId: request.auth!.tenantId };
@@ -57,7 +58,7 @@ sbomRouter.get("/", authorize("platform-admin", "security-analyst", "developer",
 
 
 /** On-demand OSV lookup for one tenant-owned SBOM; results are not persisted. */
-sbomRouter.post("/:id/vulnerabilities", authorize("platform-admin", "security-analyst", "developer", "auditor"), vulnerabilityLimiter, async (request, response) => {
+sbomRouter.post("/:id/vulnerabilities", sbomReadLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), vulnerabilityLimiter, async (request, response) => {
   if (!isValidObjectId(request.params.id)) {
     response.status(400).json({ error: "Invalid SBOM record identifier" });
     return;
@@ -121,7 +122,7 @@ sbomRouter.post("/:id/vulnerabilities", authorize("platform-admin", "security-an
 
 
 /** Latest persisted vulnerability scan snapshots for a tenant-owned SBOM. */
-sbomRouter.get("/:id/vulnerability-scans", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+sbomRouter.get("/:id/vulnerability-scans", sbomReadLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   if (!isValidObjectId(request.params.id)) {
     response.status(400).json({ error: "Invalid SBOM record identifier" });
     return;
@@ -141,7 +142,7 @@ sbomRouter.get("/:id/vulnerability-scans", authorize("platform-admin", "security
 });
 
 /** Accepts a bounded JSON CycloneDX or SPDX document; raw documents are not retained. */
-sbomRouter.post("/document", authorize("platform-admin", "security-analyst", "developer"), intakeLimiter, async (request, response) => {
+sbomRouter.post("/document", sbomReadLimiter, authorize("platform-admin", "security-analyst", "developer"), intakeLimiter, async (request, response) => {
   const input = z.object({ document: z.unknown(), source: z.string().max(500).optional() }).strict().safeParse(request.body);
   if (!input.success) {
     response.status(400).json({ error: "SBOM upload request is invalid" });
@@ -173,7 +174,7 @@ sbomRouter.post("/document", authorize("platform-admin", "security-analyst", "de
   }
 });
 
-sbomRouter.post("/", authorize("platform-admin", "security-analyst", "developer"), intakeLimiter, async (request, response) => {
+sbomRouter.post("/", sbomReadLimiter, authorize("platform-admin", "security-analyst", "developer"), intakeLimiter, async (request, response) => {
   const parsed = sbomInputSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: "SBOM metadata failed validation", details: parsed.error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })) });
