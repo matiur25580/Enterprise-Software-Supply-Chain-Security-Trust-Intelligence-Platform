@@ -151,6 +151,7 @@ export default function App() {
       <div className="nav-item"><span>▤</span> SBOM inventory</div>
       <div className="nav-item"><span>⌁</span> Provenance</div>
       <div className="nav-item"><span>⌖</span> Vulnerability intel</div>
+      <div className="nav-item"><span>✓</span> Release assurance</div>
       <div className="sidebar-bottom"><span className="status-dot"></span> API workspace <small>{health?.database ?? "checking"}</small></div>
     </aside>
     <section className="content">
