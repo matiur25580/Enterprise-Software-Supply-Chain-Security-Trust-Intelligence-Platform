@@ -27,12 +27,12 @@ policyRouter.post("/evaluate-release", authorize("platform-admin", "security-ana
   }
   try {
     const tenantId = request.auth!.tenantId;
-    const sbom = await SbomRecord.findOne({ _id: parsed.data.sbomId, tenantId }).select({ _id: 1 }).lean();
+    const sbom: any = await SbomRecord.findOne({ _id: parsed.data.sbomId, tenantId }).select({ _id: 1 }).lean();
     if (!sbom) {
       response.status(404).json({ error: "SBOM record not found" });
       return;
     }
-    const [scan, provenance] = await Promise.all([
+    const [scan, provenance]: [any, any] = await Promise.all([
       VulnerabilityScan.findOne({ tenantId, sbomId: sbom._id, status: "completed" }).sort({ scannedAt: -1 }).lean(),
       ArtifactVerification.findOne({
         tenantId, artifactDigest: parsed.data.artifactDigest.toLowerCase(),
