@@ -6,6 +6,8 @@ import { isValidObjectId } from "mongoose";
 import { SbomRecord } from "../models/SbomRecord";
 import { parseSbomDocument, SbomValidationError } from "../services/sbomParser";
 import { queryOsvByPurls, OsvServiceError } from "../services/osvClient";
+import { enrichExploitability } from "../services/exploitabilityEnrichment";
+import { VulnerabilityScan } from "../models/VulnerabilityScan";
 
 const intakeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "SBOM intake rate limit exceeded; retry shortly." } });
 const vulnerabilityLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: "Vulnerability scan rate limit exceeded; retry shortly." } });
@@ -77,13 +79,29 @@ sbomRouter.post("/:id/vulnerabilities", authorize("platform-admin", "security-an
       return;
     }
     const results = await queryOsvByPurls(purls);
+    const allVulnerabilities = results.flatMap((result) => result.vulnerabilities);
+    const enrichment = await enrichExploitability(allVulnerabilities);
     const findings = results.flatMap((result) => result.vulnerabilities.map((vulnerability) => ({
       purl: result.purl,
-      ...vulnerability
+      ...vulnerability,
+      ...(enrichment.get(vulnerability.id) ?? { isKnownExploited: false })
     })));
+    const scan = await VulnerabilityScan.create({
+      tenantId: request.auth!.tenantId,
+      sbomId: record._id,
+      source: "OSV",
+      status: "completed",
+      scannedPackages: results.length,
+      vulnerablePackages: results.filter((result) => result.vulnerabilities.length > 0).length,
+      findingCount: findings.length,
+      findings,
+      scannedAt: new Date()
+    });
     response.status(200).json({
       status: "completed",
       source: "OSV",
+      scanId: scan._id,
+      scannedAt: scan.scannedAt,
       scannedPackages: results.length,
       vulnerablePackages: results.filter((result) => result.vulnerabilities.length > 0).length,
       findingCount: findings.length,
@@ -95,6 +113,27 @@ sbomRouter.post("/:id/vulnerabilities", authorize("platform-admin", "security-an
       return;
     }
     response.status(500).json({ error: "Unable to scan SBOM vulnerabilities" });
+  }
+});
+
+
+/** Latest persisted vulnerability scan snapshots for a tenant-owned SBOM. */
+sbomRouter.get("/:id/vulnerability-scans", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+  if (!isValidObjectId(request.params.id)) {
+    response.status(400).json({ error: "Invalid SBOM record identifier" });
+    return;
+  }
+  try {
+    const record = await SbomRecord.findOne({ _id: request.params.id, tenantId: request.auth!.tenantId }).select({ _id: 1 }).lean();
+    if (!record) {
+      response.status(404).json({ error: "SBOM record not found" });
+      return;
+    }
+    const scans = await VulnerabilityScan.find({ tenantId: request.auth!.tenantId, sbomId: record._id })
+      .sort({ scannedAt: -1 }).limit(20).lean();
+    response.status(200).json({ items: scans, count: scans.length });
+  } catch {
+    response.status(500).json({ error: "Unable to load vulnerability scan history" });
   }
 });
 
