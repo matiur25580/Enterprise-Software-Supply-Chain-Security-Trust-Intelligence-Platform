@@ -2,28 +2,25 @@
 
 ## System boundaries
 
-ChainProof is currently implemented as a TypeScript modular monolith with explicit domain boundaries. This keeps deployment and operations simple while leaving room to extract workers or services when workload, scale, or isolation requirements justify it.
+ChainProof is currently implemented as a TypeScript modular monolith with explicit domain boundaries.
 
 - Web application: React dashboard for inventory, evidence review, and administration.
 - API: authentication boundary, validation, authorization, domain orchestration, and audit emission.
-- Implemented capabilities: tenant-aware SBOM ingestion, vulnerability scans, artifact/provenance verification, release policy evaluation, signed passports, and signer lifecycle management.
-- Persistence: MongoDB for tenant-scoped domain records and audit metadata.
-- Planned evolution: asynchronous workers, Redis-backed queues, and object storage for large evidence payloads. These are not required components of the current runtime.
+- Implemented capabilities: tenant-aware SBOM ingestion, vulnerability scans, artifact/provenance verification, release policy evaluation, signed passports, signer lifecycle management, and durable asynchronous SBOM processing.
+- Persistence: MongoDB for tenant-scoped domain records, audit metadata, and durable SBOM ingestion jobs.
+- Background processing: the API enqueues bounded raw JSON; an in-process worker applies official CycloneDX/SPDX schema validation, complexity checks, normalization, and idempotent persistence. Raw job payloads are removed at terminal state.
+- Planned evolution: independently deployed worker processes, streaming uploads, Redis coordination, and object storage for large evidence payloads.
 
 ## System diagrams
 
-See [System Architecture and Trust Flows](./SYSTEM-ARCHITECTURE.md) for:
-- Runtime component and external-provider boundaries.
-- SBOM-to-policy-to-passport evidence lifecycle.
-- Offline Ed25519 verification and trust-store decisions.
-- CLI examples, trust rules, and exit-code semantics.
+See [System Architecture and Trust Flows](./SYSTEM-ARCHITECTURE.md) for runtime boundaries, SBOM-to-passport evidence lifecycle, offline verification decisions, CLI examples, and operational trust rules.
 
 ## Trust boundaries
 
-1. Browser to API: TLS, strict origin policy, schema validation, authentication, and per-resource authorization.
-2. API to database: least-privilege credentials and tenant-scoped repositories.
-3. API to external registries: bounded requests, timeouts, retry budgets, and no execution of fetched content.
-4. Artifact verification: digest and signature verification against explicit server-side identity and builder policies.
+1. Browser to API: TLS, strict origin policy, authentication, role authorization, and bounded JSON request bodies.
+2. API to database: least-privilege credentials and tenant-scoped repositories. Pending async jobs temporarily contain raw SBOM JSON up to 2 MiB and must be protected as source data.
+3. API to worker: tenant ownership is assigned from authenticated context; the worker validates the queued document and removes raw input on completion or failure.
+4. API to external registries: bounded requests, timeouts, retry budgets, and no execution of fetched content.
 5. Offline passport verification: authenticated trust-store distribution independent of the passport source.
 
 ## Core data ownership
@@ -36,4 +33,4 @@ A release decision preserves its evaluated policy version, evaluation timestamp,
 
 ## Evolution strategy
 
-Keep shared TypeScript contracts and external providers behind adapters. Introduce separate workers or services only when workload isolation, scaling, or security boundaries justify the operational cost.
+Keep shared TypeScript contracts and external providers behind adapters. Extract workers into independently deployed processes only when workload isolation, scaling, or security boundaries justify the operational cost.
