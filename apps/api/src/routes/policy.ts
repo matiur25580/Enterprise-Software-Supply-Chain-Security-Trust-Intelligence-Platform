@@ -163,7 +163,7 @@ policyRouter.post("/release-passports", authorize("platform-admin", "security-an
 
 /** Retrieve and cryptographically verify a tenant-owned passport. */
 policyRouter.get("/release-passports/:passportId", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
-  const passportId = z.string().uuid().safeParse(request.params.passportId);
+  const passportId = z.string().uuid().safeParse(String(request.params.passportId));
   if (!passportId.success) {
     response.status(400).json({ error: "Invalid release passport identifier" });
     return;
