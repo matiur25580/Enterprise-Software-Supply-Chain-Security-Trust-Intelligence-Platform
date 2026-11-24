@@ -173,7 +173,7 @@ Authenticate first and send the JSON document to `POST /api/sboms/document`. The
 curl -X POST http://localhost:4000/api/sboms/document \
   -H 'Authorization: Bearer <access-token>' \
   -H 'Content-Type: application/json' \
-  --data-binary @sbom.cdx.json
+  --data-binary @request.json
 ```
 
 The endpoint expects an envelope: `{"document": { ...SBOM JSON... }, "source": "optional-origin"}`. It supports CycloneDX 1.4, 1.5 and 1.6, plus SPDX 2.3 JSON. Successful ingestion stores a server-computed JSON-serialization digest and normalized component summary; it does not store the raw document. Invalid structures return HTTP 400 and a tenant-local duplicate digest returns HTTP 409.
