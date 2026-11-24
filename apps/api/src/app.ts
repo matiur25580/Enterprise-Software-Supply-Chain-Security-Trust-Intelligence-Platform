@@ -19,21 +19,22 @@ app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") ?? false }));
 app.use(express.json({ limit: "2mb", strict: true }));
 
 // A global ceiling also protects health, static-file and fallback handlers.
-app.use(rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false }));
+const apiLimiter = rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false });
+app.use(apiLimiter);
 
-app.use("/api/health", healthRouter);
-app.use("/api/auth", authRouter);
-app.use("/api/sboms", authenticate, sbomRouter);
-app.use("/api/trust", authenticate, trustRouter);
-app.use("/api/policy", authenticate, policyRouter);
+app.use("/api/health", apiLimiter, healthRouter);
+app.use("/api/auth", apiLimiter, authRouter);
+app.use("/api/sboms", apiLimiter, authenticate, sbomRouter);
+app.use("/api/trust", apiLimiter, authenticate, trustRouter);
+app.use("/api/policy", apiLimiter, authenticate, policyRouter);
 
 // Serve the compiled Vite application when a web build is present.
 const webDist = path.resolve(process.cwd(), "apps/web/dist");
 if (fs.existsSync(webDist)) {
-  app.use(express.static(webDist));
-  app.get("/", (_request, response) => response.sendFile(path.join(webDist, "index.html")));
+  app.use(apiLimiter, express.static(webDist));
+  app.get("/", apiLimiter, (_request, response) => response.sendFile(path.join(webDist, "index.html")));
 } else {
-  app.get("/", (_request, response) => response.status(200).json({
+  app.get("/", apiLimiter, (_request, response) => response.status(200).json({
     name: "ChainProof API",
     status: "foundation",
     message: "Build the web workspace with npm run build:web to serve the dashboard."
