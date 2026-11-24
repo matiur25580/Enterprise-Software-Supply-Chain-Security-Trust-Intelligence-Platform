@@ -8,6 +8,7 @@ import { ProvenanceVerificationError, verifyArtifactSignature, verifySlsaProvena
 
 export const trustRouter = Router();
 trustRouter.use(rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }));
+const historyLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false });
 const verificationLimiter = rateLimit({
   windowMs: 60_000, limit: 5, standardHeaders: true, legacyHeaders: false,
   message: { error: "Provenance verification rate limit exceeded; retry shortly." }
@@ -132,7 +133,7 @@ trustRouter.post("/verify-slsa-provenance", authorize("platform-admin", "securit
 });
 
 /** Tenant-scoped verification audit history; never returns submitted bundle bytes. */
-trustRouter.get("/verifications", verificationLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+trustRouter.get("/verifications", historyLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   try {
     const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
     const items = await ArtifactVerification.find({ tenantId: request.auth!.tenantId })
