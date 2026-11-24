@@ -19,6 +19,15 @@ describe("SBOM document normalization", () => {
     expect(parsed.documentDigest).toMatch(/^[a-f0-9]{64}$/);
   });
 
+  it.each(["1.4", "1.5", "1.6"])("validates CycloneDX %s using its matching upstream schema", (version) => {
+    const parsed = parseSbomDocument({
+      bomFormat: "CycloneDX", specVersion: version, version: 1,
+      components: [{ type: "library", name: "sample-library", version: "1.0.0" }]
+    });
+    expect(parsed.formatVersion).toBe(version);
+    expect(parsed.componentCount).toBe(1);
+  });
+
   it("normalizes SPDX 2.3 package inventory", () => {
     const parsed = parseSbomDocument({
       spdxVersion: "SPDX-2.3",
