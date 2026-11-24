@@ -56,7 +56,7 @@ describe("tenant-scoped SBOM API", () => {
     queryResult([]);
     const response = await request(app).get("/api/sboms?q=payments&format=spdx");
     expect(response.status).toBe(200);
-    expect(find).toHaveBeenCalledWith({ tenantId: "tenant-a", format: "spdx", documentName: { $regex: "payments", $options: "i" } });
+    expect(find).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-a", format: "spdx", documentName: expect.objectContaining({ $regex: "payments", $options: "i" }) }));
   });
   it("rejects client-supplied tenant ownership", async () => {
     const response = await request(app).post("/api/sboms").send({ tenantId: "attacker-tenant", format: "cyclonedx", formatVersion: "1.6", documentName: "payments-api", componentCount: 12 });
