@@ -58,7 +58,7 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 
 ### Product roadmap — not represented as shipped functionality
 
-- Move schema validation and normalization into isolated workers so large-document parsing also runs asynchronously; add streaming uploads and explicit worker scaling controls.
+- Move CPU-intensive validation into independently deployed worker processes with separate scaling controls; add streaming uploads for larger SBOMs.
 - Package URL (purl) identity resolution and component relationship graphs.
 - NVD enrichment, deployment-aware exploitability context and policy-based prioritization of persisted findings.
 - OCI image signature verification and registry-aware Cosign verification.
@@ -432,7 +432,7 @@ An audit-oriented view of control coverage, evidence freshness, exceptions and r
 
 ## Asynchronous SBOM ingestion
 
-The existing `POST /api/sboms/document` endpoint remains synchronous for compatibility. For durable background persistence after validation and normalization, use `POST /api/sboms/document/async`:
+The existing `POST /api/sboms/document` endpoint remains synchronous for compatibility. For durable background validation, normalization and persistence, use `POST /api/sboms/document/async`:
 
 ```bash
 jq -n --slurpfile sbom ./sbom.json '{document: $sbom[0], source: "ci://pipeline/42"}' > sbom-request.json
