@@ -1,6 +1,7 @@
 import { Router } from "express";
+import { rateLimit } from "express-rate-limit";
 import { randomUUID } from "node:crypto";
-import { isValidObjectId } from "mongoose";
+import mongoose, { isValidObjectId, Types } from "mongoose";
 import { z } from "zod";
 import { authorize } from "../middleware/authorize";
 import { SbomRecord } from "../models/SbomRecord";
@@ -12,6 +13,7 @@ import { createSignedReleasePassport, verifySignedReleasePassport, type SignedRe
 import { evaluateReleasePolicy } from "../services/releasePolicy";
 
 export const policyRouter = Router();
+policyRouter.use(rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }));
 const evaluationInput = z.object({
   sbomId: z.string().regex(/^[a-f0-9]{24}$/i),
   artifactDigest: z.string().regex(/^[a-f0-9]{64}$/i)
@@ -30,7 +32,7 @@ policyRouter.post("/evaluate-release", authorize("platform-admin", "security-ana
   }
   try {
     const tenantId = request.auth!.tenantId;
-    const sbom: any = await SbomRecord.findOne({ _id: parsed.data.sbomId, tenantId }).select({ _id: 1 }).lean();
+    const sbom: any = await SbomRecord.findOne(mongoose.sanitizeFilter({ _id: new Types.ObjectId(parsed.data.sbomId), tenantId })).select({ _id: 1 }).lean();
     if (!sbom) {
       response.status(404).json({ error: "SBOM record not found" });
       return;
@@ -90,7 +92,7 @@ policyRouter.post("/release-passports", authorize("platform-admin", "security-an
   }
   try {
     const tenantId = request.auth!.tenantId;
-    const evaluation: any = await PolicyEvaluation.findOne({ _id: parsed.data.evaluationId, tenantId }).lean();
+    const evaluation: any = await PolicyEvaluation.findOne(mongoose.sanitizeFilter({ _id: new Types.ObjectId(parsed.data.evaluationId), tenantId })).lean();
     if (!evaluation) {
       response.status(404).json({ error: "Policy evaluation not found" });
       return;
