@@ -25,7 +25,7 @@ const sbomRecordSchema = new Schema({
 // Tenant-scoped listing is the expected access pattern; do not query this
 // collection by document ID alone in authenticated application services.
 sbomRecordSchema.index({ tenantId: 1, createdAt: -1 });
-sbomRecordSchema.index({ tenantId: 1, documentDigest: 1 }, { sparse: true });
+sbomRecordSchema.index({ tenantId: 1, documentDigest: 1 }, { unique: true, partialFilterExpression: { documentDigest: { $type: "string" } } });
 
 const existingSbomRecordModel = models.SbomRecord as Model<any> | undefined;
 export const SbomRecord: Model<any> = existingSbomRecordModel ?? model<any>("SbomRecord", sbomRecordSchema);
