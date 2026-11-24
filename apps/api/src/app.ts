@@ -4,7 +4,6 @@ import helmet from "helmet";
 import fs from "node:fs";
 import path from "node:path";
 import { authenticate } from "./middleware/authenticate";
-import { authorize } from "./middleware/authorize";
 import { authRouter } from "./routes/auth";
 import { healthRouter } from "./routes/health";
 import { sbomRouter } from "./routes/sbom";
@@ -18,7 +17,7 @@ app.use(express.json({ limit: "2mb", strict: true }));
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
-app.use("/api/sboms", authenticate, authorize("platform-admin", "security-analyst", "developer", "auditor"), sbomRouter);
+app.use("/api/sboms", authenticate, sbomRouter);
 
 // Serve the compiled Vite application when a web build is present.
 const webDist = path.resolve(process.cwd(), "apps/web/dist");
