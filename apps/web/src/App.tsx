@@ -4,7 +4,7 @@ type User = { id: string; tenantId: string; email: string; role: string };
 type Sbom = { _id: string; format: "cyclonedx" | "spdx"; formatVersion: string; documentName: string; documentVersion?: string; componentCount: number; documentDigest?: string; ingestionStatus: string; createdAt: string };
 type Health = { status: string; database: string; service: string };
 type Finding = { purl: string; id: string; summary?: string; aliases: string[]; severity: string; cvssScore?: number; epssScore?: number; epssPercentile?: number; isKnownExploited: boolean; references: string[] };
-type ScanResult = { status: string; scanId: string; scannedAt: string; scannedPackages: number; vulnerablePackages: number; findingCount: number; findings: Finding[] };
+type ScanResult = { status: string; scanId?: string; scannedAt?: string; scannedPackages: number; vulnerablePackages: number; findingCount: number; findings: Finding[] };
 type Verification = { _id: string; artifactDigest: string; verificationType: string; status: string; certificateIdentity?: string; builderId?: string; failureCode?: string; createdAt: string };
 const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
@@ -165,7 +165,7 @@ export default function App() {
           </article>
           <article className="panel"><div className="panel-head"><div><span className="eyebrow">RECENT ACTIVITY</span><h3>SBOM inventory</h3></div><div className="inventory-actions"><button className="ghost" onClick={()=>refresh(token, search, formatFilter)}>Search ↻</button><button className="ghost" onClick={exportCsv}>Export CSV ↓</button></div></div>
             <div className="inventory-filters"><input aria-label="Search SBOM documents" placeholder="Search document names…" value={search} onChange={e=>setSearch(e.target.value)} /><select aria-label="Filter SBOM format" value={formatFilter} onChange={e=>setFormatFilter(e.target.value)}><option value="">All formats</option><option value="cyclonedx">CycloneDX</option><option value="spdx">SPDX</option></select></div>
-            {sboms.length ? <div className="table-wrap"><table><thead><tr><th>DOCUMENT</th><th>FORMAT</th><th>COMPONENTS</th><th>STATUS</th><th>SECURITY</th></tr></thead><tbody>{sboms.map(item=><tr key={item._id}><td><strong>{item.documentName}</strong><small>{item.documentVersion || "No version"} · {new Date(item.createdAt).toLocaleDateString()}</small></td><td>{item.format.toUpperCase()}</td><td>{item.componentCount.toLocaleString()}</td><td><span className="status-pill">{item.ingestionStatus}</span></td><td><button className="ghost" disabled={busy} onClick={()=>scanSbom(item._id)}>Scan OSV ↗</button></td></tr>)}</tbody></table></div> : <div className="empty"><span>▤</span><strong>No SBOM metadata yet</strong><p>Save your first record to populate this tenant-scoped inventory.</p></div>}
+            {sboms.length ? <div className="table-wrap"><table><thead><tr><th>DOCUMENT</th><th>FORMAT</th><th>COMPONENTS</th><th>STATUS</th><th>SECURITY</th></tr></thead><tbody>{sboms.map(item=><tr key={item._id}><td><strong>{item.documentName}</strong><small>{item.documentVersion || "No version"} · {new Date(item.createdAt).toLocaleDateString()}</small></td><td>{item.format.toUpperCase()}</td><td>{item.componentCount.toLocaleString()}</td><td><span className="status-pill">{item.ingestionStatus}</span></td><td><button className="ghost" disabled={busy || item.ingestionStatus !== "validated"} title={item.ingestionStatus !== "validated" ? "Upload a CycloneDX or SPDX JSON document before scanning" : "Run OSV vulnerability lookup"} onClick={()=>scanSbom(item._id)}>Scan OSV ↗</button></td></tr>)}</tbody></table></div> : <div className="empty"><span>▤</span><strong>No SBOM metadata yet</strong><p>Save your first record to populate this tenant-scoped inventory.</p></div>}
           </article>
         </section>
         <section className="security-grid">
@@ -177,7 +177,7 @@ export default function App() {
                 <div><strong>{latestScan.vulnerablePackages}</strong><small>Vulnerable packages</small></div>
                 <div><strong>{latestScan.findingCount}</strong><small>Advisories</small></div>
               </div>
-              <p className="scan-meta">SBOM {selectedSbom.slice(-8)} · {new Date(latestScan.scannedAt).toLocaleString()}</p>
+              <p className="scan-meta">SBOM {selectedSbom.slice(-8)} · {latestScan.scannedAt ? new Date(latestScan.scannedAt).toLocaleString() : "No package URLs found"}</p>
               {latestScan.findings.length ? <div className="finding-list">{latestScan.findings.map((finding,index)=><div className="finding" key={finding.id + finding.purl + index}>
                 <div className="finding-title"><strong>{finding.id}</strong><span className={"severity " + finding.severity}>{finding.severity}</span>{finding.isKnownExploited && <span className="kev">CISA KEV</span>}</div>
                 <p>{finding.summary || "No advisory summary provided."}</p>
