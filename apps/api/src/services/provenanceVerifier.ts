@@ -34,8 +34,7 @@ function decodeBase64(value: unknown, maxBytes: number): Buffer {
 }
 
 /**
- * Verifies a Sigstore DSSE bundle using the public-good trust root, then checks
- * the signed SLSA provenance statement against the supplied artifact bytes.
+ * Verifies a detached Cosign/Sigstore bundle against the supplied artifact bytes.
  * Trust policy is server-side only; clients cannot choose trusted identities.
  */
 export async function verifyArtifactSignature(artifactBase64: string, bundle: unknown): Promise<Pick<ProvenanceSummary, "artifactDigest" | "certificateIssuer" | "certificateIdentity">> {
@@ -61,7 +60,10 @@ export async function verifyArtifactSignature(artifactBase64: string, bundle: un
   };
 }
 
-/** Verify a signed SLSA provenance DSSE envelope against artifact bytes. */
+/**
+ * Verifies a Sigstore DSSE bundle using the public-good trust root, then checks
+ * the signed SLSA provenance statement against the supplied artifact bytes.
+ */
 export async function verifySlsaProvenance(artifactBase64: string, bundle: unknown): Promise<ProvenanceSummary> {
   const issuer = process.env.SIGSTORE_CERTIFICATE_ISSUER?.trim();
   const identity = process.env.SIGSTORE_CERTIFICATE_IDENTITY?.trim();
