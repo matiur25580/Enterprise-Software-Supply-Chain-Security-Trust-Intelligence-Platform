@@ -138,3 +138,26 @@ Review `docs/architecture` and `docs/security` for current design decisions. Fol
 ## 12. License
 
 No open-source license is applied unless a license file is present. All rights are otherwise reserved.
+
+## 11. Runnable web dashboard (foundation milestone)
+
+The React/Vite dashboard now lives in `apps/web`. It provides tenant login, API health visibility and a tenant-scoped SBOM metadata workspace. The SBOM form stores validated metadata only; it does not upload or parse CycloneDX/SPDX documents, scan vulnerabilities, or verify provenance.
+
+Run the API and web development server in separate terminals:
+
+```bash
+npm install
+npm run dev
+npm run dev:web
+```
+
+Open `http://localhost:5173`. The Vite server proxies `/api` requests to the local API on port 4000.
+
+For a production-style local build:
+
+```bash
+npm run build
+npm start
+```
+
+The API serves `apps/web/dist` at its root when that build exists. Access tokens are held in browser memory and are cleared on refresh/sign-out. Provision a user with the operator-only `npm run user:create` command before signing in.
