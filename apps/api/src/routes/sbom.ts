@@ -12,12 +12,10 @@ const sbomInputSchema = z.object({
   source: z.string().max(500).optional()
 }).strict();
 
-// This first milestone validates intake metadata only. It deliberately does
-// not claim to parse, persist, or trust an SBOM document until the dedicated
-// ingestion pipeline, storage adapter, and schema-specific validators exist.
+// This endpoint validates metadata only; binary/document ingestion and storage
+// are intentionally not advertised as implemented in this milestone.
 sbomRouter.post("/", (request, response) => {
   const parsed = sbomInputSchema.safeParse(request.body);
-
   if (!parsed.success) {
     response.status(400).json({
       error: "SBOM metadata failed validation",
@@ -32,6 +30,7 @@ sbomRouter.post("/", (request, response) => {
   response.status(202).json({
     status: "accepted-for-validation",
     message: "Metadata accepted; document ingestion is not enabled in this milestone.",
+    tenantId: request.auth?.tenantId,
     sbom: parsed.data
   });
 });
