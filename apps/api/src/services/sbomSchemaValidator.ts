@@ -17,6 +17,19 @@ export interface SbomSchemaValidationResult {
 
 const ajv = new Ajv({ allErrors: true, strict: false, validateFormats: true });
 addFormats(ajv);
+// CycloneDX schemas use the IRI-reference format from RFC 3987, which ajv-formats does not register.
+ajv.addFormat("iri-reference", {
+  type: "string",
+  validate: (value: string) => {
+    if (/[\\u0000-\\u0020\\u007f]/.test(value)) return false;
+    try {
+      new URL(value, "https://chainproof.invalid/");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+});
 ajv.addSchema(cyclonedxSpdx as AnySchema);
 ajv.addSchema(cyclonedxJsf as AnySchema);
 
