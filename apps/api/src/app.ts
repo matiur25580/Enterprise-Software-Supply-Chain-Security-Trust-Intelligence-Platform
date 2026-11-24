@@ -1,13 +1,14 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import { authenticate } from "./middleware/authenticate";
+import { authorize } from "./middleware/authorize";
+import { authRouter } from "./routes/auth";
 import { healthRouter } from "./routes/health";
 import { sbomRouter } from "./routes/sbom";
 
 export const app = express();
 
-// Security headers are enabled by default; deployment-specific CSP policy can
-// be tightened once the web application's asset and API origins are finalized.
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") ?? false }));
@@ -22,16 +23,14 @@ app.get("/", (_request, response) => {
 });
 
 app.use("/api/health", healthRouter);
-app.use("/api/sboms", sbomRouter);
+app.use("/api/auth", authRouter);
+// All SBOM operations require a current tenant account and an explicit role.
+app.use("/api/sboms", authenticate, authorize("platform-admin", "security-analyst", "developer", "auditor"), sbomRouter);
 
-// Keep malformed JSON and unexpected errors in a consistent response shape.
-// Production deployments should additionally connect structured logging and
-// request correlation before enabling external traffic.
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   if (error instanceof SyntaxError) {
     response.status(400).json({ error: "Invalid JSON request body" });
     return;
   }
-
   response.status(500).json({ error: "Internal server error" });
 });
