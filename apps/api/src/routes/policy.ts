@@ -10,6 +10,7 @@ import { ArtifactVerification } from "../models/ArtifactVerification";
 import { PolicyEvaluation } from "../models/PolicyEvaluation";
 import { ReleaseTrustPassport } from "../models/ReleaseTrustPassport";
 import { VexRiskAcceptance } from "../models/VexRiskAcceptance";
+import { ReleasePassportSigner } from "../models/ReleasePassportSigner";
 import { createSignedReleasePassport, verifySignedReleasePassport, type SignedReleasePassport } from "../services/releasePassport";
 import { evaluateReleasePolicy } from "../services/releasePolicy";
 
@@ -158,6 +159,11 @@ policyRouter.post("/release-passports", policyLimiter, authorize("platform-admin
         }))
       }
     }, privateKeyPem);
+    const trustedSigner = await ReleasePassportSigner.findOne({ tenantId, keyId: signed.keyId, status: "active" }).lean();
+    if (!trustedSigner) {
+      response.status(409).json({ error: "The configured signing key is not registered as the active trusted signer. A platform administrator must activate it first." });
+      return;
+    }
     await ReleaseTrustPassport.create({
       tenantId, passportId, evaluationId: evaluation._id,
       artifactDigest: evaluation.artifactDigest, algorithm: signed.algorithm,
@@ -192,7 +198,13 @@ policyRouter.get("/release-passports/:passportId", policyLimiter, authorize("pla
       payload: record.payload,
       signature: record.signature
     };
-    response.status(200).json({ passport, signatureValid: verifySignedReleasePassport(passport) });
+    const signer: any = await ReleasePassportSigner.findOne({ tenantId: request.auth!.tenantId, keyId: record.keyId }).select({ status: 1 }).lean();
+    response.status(200).json({
+      passport,
+      signatureValid: verifySignedReleasePassport(passport),
+      signerStatus: signer?.status ?? "unregistered",
+      signerTrusted: Boolean(signer && signer.status !== "revoked")
+    });
   } catch {
     response.status(500).json({ error: "Unable to verify release trust passport" });
   }
