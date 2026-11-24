@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { rateLimit } from "express-rate-limit";
-const intakeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "SBOM intake rate limit exceeded; retry shortly." } });
 import { z } from "zod";
 import { SbomRecord } from "../models/SbomRecord";
+
+const intakeLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: "SBOM intake rate limit exceeded; retry shortly." } });
 export const sbomRouter = Router();
 const sbomInputSchema = z.object({
   format: z.enum(["cyclonedx", "spdx"]),
@@ -20,7 +21,10 @@ function escapeRegex(value: string): string {
 function csvCell(value: unknown): string {
   const raw = value == null ? "" : String(value);
   // Prevent spreadsheet formula execution when a CSV is opened in office tools.
-  const safe = /^[\\t\\r=+@-]/.test(raw) ? `'${raw}` : raw;
+  const first = raw[0];
+  const safe = first === "=" || first === "+" || first === "-" || first === "@" || first === "\t" || first === "\r"
+    ? `'${raw}`
+    : raw;
   return `"${safe.replace(/"/g, '""')}"`;
 }
 sbomRouter.get("/export.csv", async (request, response) => {
