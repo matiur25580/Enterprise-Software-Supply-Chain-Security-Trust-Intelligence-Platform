@@ -132,7 +132,7 @@ trustRouter.post("/verify-slsa-provenance", authorize("platform-admin", "securit
 });
 
 /** Tenant-scoped verification audit history; never returns submitted bundle bytes. */
-trustRouter.get("/verifications", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+trustRouter.get("/verifications", verificationLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   try {
     const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
     const items = await ArtifactVerification.find({ tenantId: request.auth!.tenantId })
