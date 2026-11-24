@@ -7,7 +7,7 @@ vi.mock("../src/services/provenanceVerifier", () => ({
   ProvenanceVerificationError: class ProvenanceVerificationError extends Error { constructor(public code: string) { super(code); } }
 }));
 import { ArtifactVerification } from "../src/models/ArtifactVerification";
-import { verifySlsaProvenance } from "../src/services/provenanceVerifier";
+import { verifySlsaProvenance, ProvenanceVerificationError } from "../src/services/provenanceVerifier";
 import { trustRouter } from "../src/routes/trust";
 
 const create = vi.mocked(ArtifactVerification.create);
@@ -45,7 +45,7 @@ describe("tenant-scoped trust verification API", () => {
     expect(JSON.stringify(create.mock.calls[0][0])).not.toContain(artifactBase64);
   });
   it("records rejected verification with a stable failure code", async () => {
-    const failure = Object.assign(new Error("mismatch"), { code: "artifact_digest_mismatch" });
+    const failure = new ProvenanceVerificationError("artifact_digest_mismatch");
     verifyProvenance.mockRejectedValue(failure);
     create.mockResolvedValue({ _id: "verification-2" } as never);
     const response = await request(app).post("/api/trust/verify-slsa-provenance").send({ artifactBase64, bundle: {} });
@@ -54,7 +54,7 @@ describe("tenant-scoped trust verification API", () => {
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-a", status: "rejected", failureCode: "artifact_digest_mismatch" }));
   });
   it("returns service unavailable when server verification policy is missing", async () => {
-    verifyProvenance.mockRejectedValue(Object.assign(new Error("policy"), { code: "policy_not_configured" }));
+    verifyProvenance.mockRejectedValue(new ProvenanceVerificationError("policy_not_configured"));
     const response = await request(app).post("/api/trust/verify-slsa-provenance").send({ artifactBase64, bundle: {} });
     expect(response.status).toBe(503);
     expect(create).not.toHaveBeenCalled();
