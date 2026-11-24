@@ -54,6 +54,17 @@ describe("SBOM document normalization", () => {
     expect(() => parseSbomDocument({ bomFormat: "CycloneDX", specVersion: "1.6", version: "not-an-integer", components: [] })).toThrow(/Official cyclonedx 1.6 JSON schema validation failed/);
   });
 
+  it("rejects deeply nested untrusted JSON before schema traversal", () => {
+    const nested: Record<string, unknown> = {};
+    let cursor = nested;
+    for (let index = 0; index < 70; index += 1) {
+      const child: Record<string, unknown> = {};
+      cursor.child = child;
+      cursor = child;
+    }
+    expect(() => parseSbomDocument({ bomFormat: "CycloneDX", specVersion: "1.6", components: [], untrusted: nested })).toThrow(/maximum JSON nesting depth/);
+  });
+
   it("rejects duplicate normalized component identities", () => {
     expect(() => parseSbomDocument({
       bomFormat: "CycloneDX", specVersion: "1.6",
