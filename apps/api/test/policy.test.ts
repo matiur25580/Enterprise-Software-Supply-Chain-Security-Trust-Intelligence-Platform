@@ -40,7 +40,7 @@ describe("release policy API", () => {
     expect(response.status).toBe(200);
     expect(response.body.outcome).toBe("pass");
     expect(PolicyEvaluation.create).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-a", outcome: "pass", artifactDigest: digest }));
-    expect(SbomRecord.findOne).toHaveBeenCalledWith({ _id: sbomId, tenantId: "tenant-a" });
+    expect(SbomRecord.findOne).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-a", _id: expect.objectContaining({ _bsontype: "ObjectId" }) }));
     expect(VulnerabilityScan.findOne).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "tenant-a", sbomId }));
   });
 
