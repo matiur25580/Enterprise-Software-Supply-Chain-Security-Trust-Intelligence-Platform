@@ -1,12 +1,12 @@
 import express from "express";
 import mongoose from "mongoose";
 import request from "supertest";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SbomRecord } from "../src/models/SbomRecord";
 import { VulnerabilityScan } from "../src/models/VulnerabilityScan";
-vi.mock("../src/services/osvClient", () => ({ OsvServiceError: class OsvServiceError extends Error {}, queryOsvByPurls: vi.fn().mockResolvedValue([{ purl: "pkg:npm/express@4.21.2", vulnerabilities: [{ id: "GHSA-integration", aliases: ["CVE-2026-1111"], references: [], summary: "Synthetic integration advisory", severity: "high", cvssScore: 8.1 }] }]) }));
-vi.mock("../src/services/exploitabilityEnrichment", () => ({ enrichExploitability: vi.fn().mockResolvedValue(new Map([["GHSA-integration", { epssScore: 0.31, epssPercentile: 0.88, isKnownExploited: true }]])) }));
-import { vi } from "vitest";
+const { osvQueryMock, enrichMock } = vi.hoisted(() => ({ osvQueryMock: vi.fn(), enrichMock: vi.fn() }));
+vi.mock("../src/services/osvClient", () => ({ OsvServiceError: class OsvServiceError extends Error {}, queryOsvByPurls: osvQueryMock }));
+vi.mock("../src/services/exploitabilityEnrichment", () => ({ enrichExploitability: enrichMock }));
 import { sbomRouter } from "../src/routes/sbom";
 
 const uri = process.env.MONGODB_URI;
@@ -28,7 +28,11 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     await mongoose.connection.dropDatabase();
     await SbomRecord.syncIndexes();
   });
-  beforeEach(async () => { await Promise.all([SbomRecord.deleteMany({}), VulnerabilityScan.deleteMany({})]); });
+  beforeEach(async () => {
+    await Promise.all([SbomRecord.deleteMany({}), VulnerabilityScan.deleteMany({})]);
+    osvQueryMock.mockResolvedValue([{ purl: "pkg:npm/express@4.21.2", vulnerabilities: [{ id: "GHSA-integration", aliases: ["CVE-2026-1111"], references: [], summary: "Synthetic integration advisory", severity: "high", cvssScore: 8.1 }] }]);
+    enrichMock.mockResolvedValue(new Map([["GHSA-integration", { epssScore: 0.31, epssPercentile: 0.88, isKnownExploited: true }]]));
+  });
   afterAll(async () => { await mongoose.disconnect(); });
 
   it("persists SBOM metadata and only returns records belonging to the requesting tenant", async () => {
