@@ -29,7 +29,7 @@ export async function authenticate(request: Request, response: Response, next: N
     // token expiry; the tenant predicate prevents cross-tenant identity reuse.
     const user = await User.findOne({
       _id: claims.sub, tenantId: claims.tenantId, active: true
-    }).select("tenantId role").lean();
+    }).select("tenantId role");
 
     if (!user) {
       response.status(401).json({ error: "Account is inactive or unavailable" });
