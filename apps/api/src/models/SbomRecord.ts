@@ -1,0 +1,30 @@
+import { Schema, model, models } from "mongoose";
+
+const sbomRecordSchema = new Schema({
+  // Tenant ownership must be derived from authenticated server context.
+  tenantId: { type: String, required: true, trim: true, maxlength: 120 },
+  format: { type: String, enum: ["cyclonedx", "spdx"], required: true },
+  formatVersion: { type: String, required: true, maxlength: 40 },
+  documentName: { type: String, required: true, trim: true, maxlength: 200 },
+  documentVersion: { type: String, maxlength: 100 },
+  componentCount: { type: Number, required: true, min: 0, max: 1000000 },
+  source: { type: String, maxlength: 500 },
+  documentDigest: { type: String, match: /^[a-f0-9]{64}$/i },
+  ingestionStatus: {
+    type: String,
+    enum: ["received", "validated", "rejected"],
+    default: "received",
+    required: true
+  }
+}, {
+  timestamps: true,
+  strict: "throw",
+  versionKey: false
+});
+
+// Tenant-scoped listing is the expected access pattern; do not query this
+// collection by document ID alone in authenticated application services.
+sbomRecordSchema.index({ tenantId: 1, createdAt: -1 });
+sbomRecordSchema.index({ tenantId: 1, documentDigest: 1 }, { sparse: true });
+
+export const SbomRecord = models.SbomRecord ?? model("SbomRecord", sbomRecordSchema);
