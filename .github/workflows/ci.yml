@@ -1,36 +1,45 @@
-name: CI
+name: ChainProof CI
 
 on:
-  pull_request:
   push:
-    branches: [main, "feat/**"]
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   validate:
-    name: Typecheck and build
     runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v5
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          version: 10.12.1
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          package-manager-cache: false
-      - name: Install
-        run: pnpm install --no-frozen-lockfile
-      - name: Typecheck
-        run: pnpm typecheck
-      - name: Build
-        run: pnpm build
+          node-version: 20
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run mocked unit tests
+        run: npm test
+      - name: Run real MongoDB integration tests
+        run: npm run test:integration
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/chainproof_ci
+      - name: Type-check API and web
+        run: npm run typecheck
+      - name: Build API and web
+        run: npm run build
+      - name: Build production container image
+        run: docker build --tag chainproof-ci .
