@@ -155,7 +155,7 @@ sbomRouter.post("/document", authorize("platform-admin", "security-analyst", "de
     });
     response.status(201).json({
       status: "validated",
-      message: "SBOM structure validated and normalized. Vulnerability analysis and signature verification are not enabled.",
+      message: "SBOM structure validated and normalized. Artifact signature and provenance verification are available through the separate trust API.",
       item: record
     });
   } catch (error) {
