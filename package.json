@@ -13,7 +13,8 @@
     "build:api": "tsc -p apps/api/tsconfig.json",
     "build:web": "vite build --config apps/web/vite.config.ts",
     "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:indexes": "tsx scripts/ensure-indexes.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
