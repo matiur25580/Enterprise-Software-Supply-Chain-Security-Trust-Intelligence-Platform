@@ -7,7 +7,7 @@ describe("SBOM document normalization", () => {
       bomFormat: "CycloneDX",
       specVersion: "1.6",
       version: 1,
-      metadata: { component: { name: "payments-api", version: "2.4.0" } },
+      metadata: { component: { type: "application", name: "payments-api", version: "2.4.0" } },
       components: [{ type: "library", name: "express", version: "4.21.2", "bom-ref": "pkg:express", purl: "pkg:npm/express@4.21.2" }],
       dependencies: [{ ref: "pkg:express", dependsOn: ["pkg:lodash"] }]
     });
@@ -38,7 +38,7 @@ describe("SBOM document normalization", () => {
 
   it("rejects unsupported versions and malformed package URLs", () => {
     expect(() => parseSbomDocument({ bomFormat: "CycloneDX", specVersion: "1.3", components: [] })).toThrow(SbomValidationError);
-    expect(() => parseSbomDocument({ bomFormat: "CycloneDX", specVersion: "1.6", components: [{ name: "bad", purl: "https://example.com" }] })).toThrow(/package-url/);
+    expect(() => parseSbomDocument({ bomFormat: "CycloneDX", specVersion: "1.6", components: [{ type: "library", name: "bad", purl: "https://example.com" }] })).toThrow(/package-url/);
   });
 
   it("rejects structurally invalid documents using the official schema", () => {
@@ -48,7 +48,7 @@ describe("SBOM document normalization", () => {
   it("rejects duplicate normalized component identities", () => {
     expect(() => parseSbomDocument({
       bomFormat: "CycloneDX", specVersion: "1.6",
-      components: [{ name: "lib", version: "1.0" }, { name: "LIB", version: "1.0" }]
+      components: [{ type: "library", name: "lib", version: "1.0" }, { type: "library", name: "LIB", version: "1.0" }]
     })).toThrow(/Duplicate component identity/);
   });
 });
