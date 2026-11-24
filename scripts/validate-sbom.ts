@@ -29,7 +29,7 @@ async function main(): Promise<void> {
       documentName: parsed.documentName,
       componentCount: parsed.componentCount,
       dependencyRelationshipCount: parsed.normalizedDependencies.length,
-      sha256OfCanonicalJson: parsed.documentDigest
+      sha256OfJsonSerialization: parsed.documentDigest
     }, null, 2));
   } catch (error) {
     if (error instanceof SyntaxError) {
