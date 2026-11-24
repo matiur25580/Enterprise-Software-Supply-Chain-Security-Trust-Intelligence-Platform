@@ -45,7 +45,8 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 - **Integrity metadata:** duplicate SHA-256 digest prevention within a tenant.
 - **Vulnerability intelligence:** on-demand OSV batch lookup for up to 100 unique package URLs; persist tenant-scoped scan snapshots with CVSS/severity metadata and optional CISA KEV/FIRST EPSS enrichment for CVE aliases.
 - **Scan history:** retrieve the latest 20 vulnerability scan snapshots for a tenant-owned SBOM.
-- **Sigstore provenance verification:** verify a signed in-toto SLSA provenance v1 DSSE bundle against the actual artifact bytes, configured certificate issuer/identity and an explicit builder allowlist.
+- **Cosign artifact signature verification:** verify a Sigstore/Cosign detached signature bundle against the exact supplied artifact bytes and server-configured certificate issuer/identity.
+- **SLSA provenance verification:** verify a signed in-toto SLSA provenance v1 DSSE bundle, match its subject SHA-256 digest to the artifact bytes, and enforce an explicit builder allowlist.
 - **Trust audit history:** persist successful and rejected verification outcomes with artifact digest, signer policy, builder identity and source revision metadata; submitted artifact and bundle bytes are not retained.
 - **Abuse controls:** bounded request payloads and rate-limited intake/login endpoints.
 - **Operational health:** API health and database-aware readiness endpoints.
@@ -199,7 +200,7 @@ The endpoint expects an envelope: `{"document": { ...SBOM JSON... }, "source": "
 
 ### Verify signed SLSA provenance
 
-The API verifies a Sigstore DSSE bundle containing an in-toto Statement v1 with the SLSA provenance v1 predicate. The signed statement must name the supplied artifact's SHA-256 digest as a subject, and its builder ID must be in the server's explicit allowlist.
+The API provides two verification endpoints: detached Cosign/Sigstore blob signature verification and signed SLSA provenance verification. Both validate the bundle against the actual supplied artifact bytes and the configured signer certificate identity/issuer. The provenance endpoint additionally verifies a Sigstore DSSE bundle containing an in-toto Statement v1 with the SLSA provenance v1 predicate. The signed statement must name the supplied artifact's SHA-256 digest as a subject, and its builder ID must be in the server's explicit allowlist.
 
 Configure these values in the deployment secret/environment configuration before enabling the endpoint:
 
@@ -209,7 +210,18 @@ Configure these values in the deployment secret/environment configuration before
 
 If any policy setting is missing, verification fails closed with HTTP 503. Signature/policy/provenance failures return HTTP 422 and create a tenant-scoped rejected audit record. Successful verification returns HTTP 200 and creates a verified record.
 
-Example request (the bundle file must be a Sigstore DSSE attestation bundle, not a plain detached signature):
+Example detached artifact signature request (bundle created with `cosign sign-blob --bundle signature.sigstore.json release.tar.gz`):
+
+```bash
+jq -n --arg artifactBase64 "$(base64 -w0 release.tar.gz)" \
+  --slurpfile bundle signature.sigstore.json \
+  '{artifactBase64: $artifactBase64, bundle: $bundle[0]}' \
+  | curl -X POST http://localhost:4000/api/trust/verify-artifact-signature \
+      -H 'Authorization: Bearer <access-token>' \
+      -H 'Content-Type: application/json' --data-binary @-
+```
+
+Example SLSA provenance request (the bundle file must be a Sigstore DSSE attestation bundle, not a plain detached signature):
 
 ```bash
 jq -n --arg artifactBase64 "$(base64 -w0 release.tar.gz)" \
@@ -220,7 +232,7 @@ jq -n --arg artifactBase64 "$(base64 -w0 release.tar.gz)" \
       -H 'Content-Type: application/json' --data-binary @-
 ```
 
-The latest verification audit records are available from `GET /api/trust/verifications`; results are always scoped to the authenticated tenant. The service does not store artifact bytes or the submitted bundle. The verifier checks the Sigstore certificate identity/issuer policy and signed SLSA subject digest; it does not yet enforce every SLSA build requirement or act as an automated release gate.
+The latest verification audit records from both endpoints are available from `GET /api/trust/verifications`; results are always scoped to the authenticated tenant. The service does not store artifact bytes or the submitted bundle. The verifier checks the Sigstore certificate identity/issuer policy and signed SLSA subject digest; it does not yet enforce every SLSA build requirement or act as an automated release gate.
 
 ## 7. Environment configuration
 
