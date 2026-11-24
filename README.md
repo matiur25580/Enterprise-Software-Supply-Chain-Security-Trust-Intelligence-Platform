@@ -161,3 +161,19 @@ npm start
 ```
 
 The API serves `apps/web/dist` at its root when that build exists. Access tokens are held in browser memory and are cleared on refresh/sign-out. Provision a user with the operator-only `npm run user:create` command before signing in.
+
+## 12. Inventory search, export and integrity metadata
+
+The tenant-scoped SBOM inventory supports document-name search and CycloneDX/SPDX filtering. Authorized users can export up to 5,000 tenant records as CSV. CSV values are escaped and spreadsheet formula prefixes are neutralized. An optional SHA-256 digest can be recorded; duplicate digests are rejected within the same tenant. A digest is metadata only at this stage and is not verified against an uploaded file.
+
+## 13. Automated validation
+
+Run the API and frontend test suite with:
+
+```bash
+npm test
+npm run typecheck
+npm run build
+```
+
+The tests cover SBOM validation, tenant-scoped queries, digest conflicts, CSV escaping/formula protection, JWT account revalidation, role authorization, and dashboard rendering. GitHub Actions runs tests, type checks, and production builds on pushes and pull requests.
