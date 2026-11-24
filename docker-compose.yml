@@ -29,6 +29,7 @@ services:
       MONGODB_URI: mongodb://mongo:27017/chainproof
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your shell or local .env file}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:4000}
+      RELEASE_PASSPORT_PRIVATE_KEY: ${RELEASE_PASSPORT_PRIVATE_KEY:-}
     ports:
       - "${APP_PORT:-4000}:4000"
     healthcheck:
