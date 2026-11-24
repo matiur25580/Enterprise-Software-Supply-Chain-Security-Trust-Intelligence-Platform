@@ -52,12 +52,13 @@ export async function queryOsvByPurls(purls: string[]): Promise<OsvPackageResult
   try { payload = await response.json(); } catch {
     throw new OsvServiceError("OSV returned an invalid JSON response");
   }
-  if (!isRecord(payload) || !Array.isArray(payload.results) || payload.results.length !== uniquePurls.length) {
+  const batchResults = isRecord(payload) ? payload.results : undefined;
+  if (!Array.isArray(batchResults) || batchResults.length !== uniquePurls.length) {
     throw new OsvServiceError("OSV returned an unexpected batch response");
   }
 
   return uniquePurls.map((purl, index) => {
-    const result = payload.results![index];
+    const result: unknown = batchResults[index];
     const rawVulnerabilities = isRecord(result) && Array.isArray(result.vulns) ? result.vulns : [];
     const vulnerabilities = rawVulnerabilities.flatMap((raw): OsvVulnerability[] => {
       if (!isRecord(raw) || typeof raw.id !== "string" || raw.id.length > 120) return [];
