@@ -14,7 +14,6 @@ import { evaluateReleasePolicy } from "../services/releasePolicy";
 
 export const policyRouter = Router();
 const policyLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
-policyRouter.use(policyLimiter);
 const evaluationInput = z.object({
   sbomId: z.string().regex(/^[a-f0-9]{24}$/i),
   artifactDigest: z.string().regex(/^[a-f0-9]{64}$/i)
