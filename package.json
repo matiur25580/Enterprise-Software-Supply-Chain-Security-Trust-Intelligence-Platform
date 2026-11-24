@@ -29,7 +29,7 @@
     "jsonwebtoken": "^9.0.2",
     "express-rate-limit": "^8.7.5",
     "sigstore": "^4.1.1",
-    "react": "^18.3.1",
+    "react": "^19.3.1",
     "react-dom": "^18.3.1",
     "pino": "^9.7.0",
     "lucide-react": "^1.77.0"
