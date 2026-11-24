@@ -435,7 +435,7 @@ jq -n --slurpfile sbom ./sbom.json '{document: $sbom[0], source: "ci://pipeline/
 curl --fail-with-body -sS -X POST "$CHAINPROOF_API_URL/api/sboms/document/async" \
   -H "Authorization: Bearer $CHAINPROOF_TOKEN" \
   -H "Content-Type: application/json" \
-  --data-binary @sbom-request.json
+  --data-binary @sbom-request.json > enqueue-response.json
 ```
 
 A successful enqueue returns HTTP `202 Accepted` with a `jobId` and `statusUrl`. Poll the tenant-scoped status endpoint until it reaches `completed` or `failed`:
