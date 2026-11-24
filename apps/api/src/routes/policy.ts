@@ -13,14 +13,15 @@ import { createSignedReleasePassport, verifySignedReleasePassport, type SignedRe
 import { evaluateReleasePolicy } from "../services/releasePolicy";
 
 export const policyRouter = Router();
-policyRouter.use(rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }));
+const policyLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
+policyRouter.use(policyLimiter);
 const evaluationInput = z.object({
   sbomId: z.string().regex(/^[a-f0-9]{24}$/i),
   artifactDigest: z.string().regex(/^[a-f0-9]{64}$/i)
 }).strict();
 
 /** Deterministic release gate: evidence must be tenant-owned and digest-bound. */
-policyRouter.post("/evaluate-release", authorize("platform-admin", "security-analyst", "developer"), async (request, response) => {
+policyRouter.post("/evaluate-release", policyLimiter, authorize("platform-admin", "security-analyst", "developer"), async (request, response) => {
   const parsed = evaluationInput.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: "Release policy input is invalid", details: parsed.error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })) });
@@ -61,7 +62,7 @@ policyRouter.post("/evaluate-release", authorize("platform-admin", "security-ana
 });
 
 /** Tenant-scoped release policy audit history. */
-policyRouter.get("/evaluations", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+policyRouter.get("/evaluations", policyLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   try {
     const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
     const items = await PolicyEvaluation.find({ tenantId: request.auth!.tenantId }).sort({ evaluatedAt: -1 }).limit(limit).lean();
@@ -75,7 +76,7 @@ policyRouter.get("/evaluations", authorize("platform-admin", "security-analyst",
 const passportInput = z.object({ evaluationId: z.string().regex(/^[a-f0-9]{24}$/i) }).strict();
 
 /** Issue a portable, signed evidence envelope for a persisted release-policy evaluation. */
-policyRouter.post("/release-passports", authorize("platform-admin", "security-analyst", "developer"), async (request, response) => {
+policyRouter.post("/release-passports", policyLimiter, authorize("platform-admin", "security-analyst", "developer"), async (request, response) => {
   const parsed = passportInput.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: "Release passport input is invalid" });
@@ -164,7 +165,7 @@ policyRouter.post("/release-passports", authorize("platform-admin", "security-an
 });
 
 /** Retrieve and cryptographically verify a tenant-owned passport. */
-policyRouter.get("/release-passports/:passportId", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+policyRouter.get("/release-passports/:passportId", policyLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   const passportId = z.string().uuid().safeParse(String(request.params.passportId));
   if (!passportId.success) {
     response.status(400).json({ error: "Invalid release passport identifier" });
@@ -192,7 +193,7 @@ policyRouter.get("/release-passports/:passportId", authorize("platform-admin", "
 });
 
 /** Tenant-scoped passport inventory. */
-policyRouter.get("/release-passports", authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
+policyRouter.get("/release-passports", policyLimiter, authorize("platform-admin", "security-analyst", "developer", "auditor"), async (request, response) => {
   try {
     const limit = Math.min(Math.max(Number(request.query.limit) || 20, 1), 100);
     const items = await ReleaseTrustPassport.find({ tenantId: request.auth!.tenantId })
