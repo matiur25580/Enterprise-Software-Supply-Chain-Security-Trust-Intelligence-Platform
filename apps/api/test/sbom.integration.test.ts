@@ -3,6 +3,10 @@ import mongoose from "mongoose";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { SbomRecord } from "../src/models/SbomRecord";
+import { VulnerabilityScan } from "../src/models/VulnerabilityScan";
+vi.mock("../src/services/osvClient", () => ({ queryOsvByPurls: vi.fn().mockResolvedValue([{ purl: "pkg:npm/express@4.21.2", vulnerabilities: [{ id: "GHSA-integration", aliases: ["CVE-2026-1111"], references: [], summary: "Synthetic integration advisory", severity: "high", cvssScore: 8.1 }] }]) }));
+vi.mock("../src/services/exploitabilityEnrichment", () => ({ enrichExploitability: vi.fn().mockResolvedValue(new Map([["GHSA-integration", { epssScore: 0.31, epssPercentile: 0.88, isKnownExploited: true }]])) }));
+import { vi } from "vitest";
 import { sbomRouter } from "../src/routes/sbom";
 
 const uri = process.env.MONGODB_URI;
@@ -24,7 +28,7 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     await mongoose.connection.dropDatabase();
     await SbomRecord.syncIndexes();
   });
-  beforeEach(async () => { await SbomRecord.deleteMany({}); });
+  beforeEach(async () => { await Promise.all([SbomRecord.deleteMany({}), VulnerabilityScan.deleteMany({})]); });
   afterAll(async () => { await mongoose.disconnect(); });
 
   it("persists SBOM metadata and only returns records belonging to the requesting tenant", async () => {
@@ -54,6 +58,30 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     expect(inventory.body.items[0].documentName).toBe("checkout");
     const otherTenant = await request(app).get("/api/sboms").set("x-test-tenant", "tenant-b");
     expect(otherTenant.body.items).toHaveLength(0);
+  });
+
+
+  it("persists enriched vulnerability scan snapshots and scopes scan history by tenant", async () => {
+    const ingested = await request(app).post("/api/sboms/document").set("x-test-tenant", "tenant-a").send({
+      document: {
+        bomFormat: "CycloneDX", specVersion: "1.6",
+        metadata: { component: { name: "checkout" } },
+        components: [{ type: "library", name: "express", version: "4.21.2", purl: "pkg:npm/express@4.21.2" }]
+      }
+    });
+    const sbomId = ingested.body.item._id;
+    const scan = await request(app).post(`/api/sboms/${sbomId}/vulnerabilities`).set("x-test-tenant", "tenant-a");
+    expect(scan.status).toBe(200);
+    expect(scan.body.findingCount).toBe(1);
+    const history = await request(app).get(`/api/sboms/${sbomId}/vulnerability-scans`).set("x-test-tenant", "tenant-a");
+    expect(history.status).toBe(200);
+    expect(history.body.count).toBe(1);
+    expect(history.body.items[0].findings[0]).toMatchObject({
+      id: "GHSA-integration", severity: "high", cvssScore: 8.1,
+      epssScore: 0.31, epssPercentile: 0.88, isKnownExploited: true
+    });
+    const otherTenant = await request(app).get(`/api/sboms/${sbomId}/vulnerability-scans`).set("x-test-tenant", "tenant-b");
+    expect(otherTenant.status).toBe(404);
   });
 
   it("enforces the tenant-scoped unique digest index", async () => {
