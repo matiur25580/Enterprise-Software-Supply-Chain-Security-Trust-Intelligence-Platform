@@ -77,12 +77,12 @@ describe("tenant-scoped SBOM API", () => {
   it("validates and persists a CycloneDX document without accepting tenant input", async () => {
     create.mockResolvedValue({ _id: "record-document", tenantId: "tenant-a", format: "cyclonedx" } as never);
     const response = await request(app).post("/api/sboms/document").send({
-      document: { bomFormat: "CycloneDX", specVersion: "1.6", metadata: { component: { name: "checkout", version: "1.0" } }, components: [{ type: "library", name: "express", version: "4.21.2", purl: "pkg:npm/express@4.21.2" }] }
+      document: { bomFormat: "CycloneDX", specVersion: "1.6", metadata: { component: { type: "application", name: "checkout", version: "1.0" } }, components: [{ type: "library", name: "express", version: "4.21.2", "bom-ref": "pkg:express", purl: "pkg:npm/express@4.21.2" }], dependencies: [{ ref: "pkg:express", dependsOn: ["pkg:lodash"] }] }
     });
     expect(response.status).toBe(201);
     expect(create).toHaveBeenCalledWith(expect.objectContaining({
       tenantId: "tenant-a", format: "cyclonedx", documentName: "checkout", componentCount: 1,
-      ingestionStatus: "validated", normalizedComponents: [expect.objectContaining({ name: "express", purl: "pkg:npm/express@4.21.2" })]
+      ingestionStatus: "validated", normalizedComponents: [expect.objectContaining({ name: "express", bomRef: "pkg:express", purl: "pkg:npm/express@4.21.2" })], normalizedDependencies: [{ from: "pkg:express", to: "pkg:lodash", relationshipType: "dependsOn" }]
     }));
   });
   it("rejects malformed SBOM documents before persistence", async () => {

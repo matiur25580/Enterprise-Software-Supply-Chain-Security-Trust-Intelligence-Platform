@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { validateSbomDocumentSchema } from "./sbomSchemaValidator";
 
 export type SbomFormat = "cyclonedx" | "spdx";
 export interface NormalizedComponent {
@@ -7,6 +8,12 @@ export interface NormalizedComponent {
   purl?: string;
   supplier?: string;
   componentType?: string;
+  bomRef?: string;
+}
+export interface NormalizedDependency {
+  from: string;
+  to: string;
+  relationshipType: string;
 }
 export interface ParsedSbom {
   format: SbomFormat;
@@ -16,6 +23,7 @@ export interface ParsedSbom {
   componentCount: number;
   documentDigest: string;
   normalizedComponents: NormalizedComponent[];
+  normalizedDependencies: NormalizedDependency[];
 }
 export class SbomValidationError extends Error {
   constructor(message: string) { super(message); this.name = "SbomValidationError"; }
@@ -56,12 +64,17 @@ function normalizeComponents(raw: unknown[], nameField: string): NormalizedCompo
     const identity = purl ?? `${name.toLowerCase()}@${(version ?? "").toLowerCase()}`;
     if (seen.has(identity)) throw new SbomValidationError(`Duplicate component identity: ${identity.slice(0, 120)}`);
     seen.add(identity);
-    return { name, ...(version ? { version } : {}), ...(purl ? { purl } : {}), ...(supplier ? { supplier } : {}), ...(componentType ? { componentType } : {}) };
+    const bomRef = optionalText(entry["bom-ref"] ?? entry.SPDXID, 500);
+    return { name, ...(version ? { version } : {}), ...(purl ? { purl } : {}), ...(supplier ? { supplier } : {}), ...(componentType ? { componentType } : {}), ...(bomRef ? { bomRef } : {}) };
   });
 }
 
 export function parseSbomDocument(document: unknown): ParsedSbom {
   if (!isObject(document)) throw new SbomValidationError("SBOM document must be a JSON object");
+  const official = validateSbomDocumentSchema(document);
+  if (!official.valid) {
+    throw new SbomValidationError("Official " + official.format + " " + official.version + " JSON schema validation failed: " + official.errors.join("; "));
+  }
   let format: SbomFormat;
   let formatVersion: string;
   let documentName: string;
@@ -90,10 +103,31 @@ export function parseSbomDocument(document: unknown): ParsedSbom {
     throw new SbomValidationError("Document is not a supported CycloneDX or SPDX JSON SBOM");
   }
 
+  const normalizedDependencies: NormalizedDependency[] = [];
+  if (format === "cyclonedx" && Array.isArray(document.dependencies)) {
+    for (const [index, entry] of document.dependencies.entries()) {
+      if (!isObject(entry)) throw new SbomValidationError("CycloneDX dependency at index " + index + " must be an object");
+      const from = cleanText(entry.ref, "dependencies[" + index + "].ref", 500);
+      if (!Array.isArray(entry.dependsOn)) throw new SbomValidationError("dependencies[" + index + "].dependsOn must be an array");
+      for (const [targetIndex, target] of entry.dependsOn.entries()) {
+        normalizedDependencies.push({ from, to: cleanText(target, "dependencies[" + index + "].dependsOn[" + targetIndex + "]", 500), relationshipType: "dependsOn" });
+      }
+    }
+  } else if (format === "spdx" && Array.isArray(document.relationships)) {
+    for (const [index, entry] of document.relationships.entries()) {
+      if (!isObject(entry)) throw new SbomValidationError("SPDX relationship at index " + index + " must be an object");
+      normalizedDependencies.push({
+        from: cleanText(entry.spdxElementId, "relationships[" + index + "].spdxElementId", 500),
+        to: cleanText(entry.relatedSpdxElement, "relationships[" + index + "].relatedSpdxElement", 500),
+        relationshipType: cleanText(entry.relationshipType, "relationships[" + index + "].relationshipType", 100)
+      });
+    }
+  }
+
   const serialized = JSON.stringify(document);
   if (Buffer.byteLength(serialized, "utf8") > 2 * 1024 * 1024) {
     throw new SbomValidationError("SBOM document exceeds the 2 MiB ingestion limit");
   }
   const documentDigest = createHash("sha256").update(serialized, "utf8").digest("hex");
-  return { format, formatVersion, documentName, ...(documentVersion ? { documentVersion } : {}), componentCount: components.length, documentDigest, normalizedComponents: components };
+  return { format, formatVersion, documentName, ...(documentVersion ? { documentVersion } : {}), componentCount: components.length, documentDigest, normalizedComponents: components, normalizedDependencies };
 }

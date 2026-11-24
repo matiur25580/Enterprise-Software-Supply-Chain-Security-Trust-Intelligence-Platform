@@ -157,7 +157,7 @@ sbomRouter.post("/document", sbomReadLimiter, authorize("platform-admin", "secur
     });
     response.status(201).json({
       status: "validated",
-      message: "SBOM structure validated and normalized. Artifact signature and provenance verification are available through the separate trust API.",
+      message: "SBOM passed the official format schema and was normalized, including dependency relationships. Artifact signature and provenance verification are available through the separate trust API.",
       item: record
     });
   } catch (error) {
