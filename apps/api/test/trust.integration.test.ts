@@ -3,17 +3,23 @@ import mongoose from "mongoose";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ArtifactVerification } from "../src/models/ArtifactVerification";
-vi.mock("../src/services/provenanceVerifier", () => ({
-  verifyArtifactSignature: vi.fn(),
-  ProvenanceVerificationError: class ProvenanceVerificationError extends Error { constructor(public code: string) { super(code); } },
-  verifySlsaProvenance: vi.fn().mockResolvedValue({
-    artifactDigest: "a".repeat(64), certificateIssuer: "https://token.actions.githubusercontent.com",
-    certificateIdentity: "https://github.com/acme/release/.github/workflows/build.yml@refs/heads/main",
-    predicateType: "https://slsa.dev/provenance/v1", buildType: "https://github.com/actions/runner",
-    builderId: "https://github.com/acme/release/.github/workflows/build.yml@refs/heads/main",
-    sourceRepository: "https://github.com/acme/release", sourceCommit: "abc123", invocationId: "run-1"
-  })
+const { verifySlsaMock, verifySignatureMock, VerificationError } = vi.hoisted(() => ({
+  verifySlsaMock: vi.fn(),
+  verifySignatureMock: vi.fn(),
+  VerificationError: class extends Error { constructor(public code: string) { super(code); } }
 }));
+vi.mock("../src/services/provenanceVerifier", () => ({
+  verifyArtifactSignature: verifySignatureMock,
+  ProvenanceVerificationError: VerificationError,
+  verifySlsaProvenance: verifySlsaMock
+}));
+const mockSummary = {
+  artifactDigest: "a".repeat(64), certificateIssuer: "https://token.actions.githubusercontent.com",
+  certificateIdentity: "https://github.com/acme/release/.github/workflows/build.yml@refs/heads/main",
+  predicateType: "https://slsa.dev/provenance/v1", buildType: "https://github.com/actions/runner",
+  builderId: "https://github.com/acme/release/.github/workflows/build.yml@refs/heads/main",
+  sourceRepository: "https://github.com/acme/release", sourceCommit: "abc123", invocationId: "run-1"
+};
 import { trustRouter } from "../src/routes/trust";
 
 const uri = process.env.MONGODB_URI;
@@ -34,7 +40,7 @@ describe.skipIf(!mongoAvailable)("ChainProof artifact verification MongoDB integ
     await mongoose.connection.dropDatabase();
     await ArtifactVerification.syncIndexes();
   });
-  beforeEach(async () => { await ArtifactVerification.deleteMany({}); });
+  beforeEach(async () => { await ArtifactVerification.deleteMany({}); verifySlsaMock.mockResolvedValue(mockSummary); });
   afterAll(async () => { await mongoose.disconnect(); });
 
   it("persists successful provenance verification and isolates audit history by tenant", async () => {
