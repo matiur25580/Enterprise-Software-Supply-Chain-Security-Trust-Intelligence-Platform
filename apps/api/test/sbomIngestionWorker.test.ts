@@ -84,7 +84,7 @@ describe("durable SBOM ingestion worker", () => {
     expect(updateJobMock).toHaveBeenCalledWith(
       { _id: "507f1f77bcf86cd799439011", workerId: expect.stringContaining("sbom-worker-") },
       expect.objectContaining({
-        $set: expect.objectContaining({ status: "queued", lastError: "temporary database outage", availableAt: new Date("2026-11-24T12:00:01Z") })
+        $set: expect.objectContaining({ status: "queued", lastError: "SBOM persistence failed; retry scheduled.", availableAt: new Date("2026-11-24T12:00:01Z") })
       })
     );
   });
@@ -97,7 +97,7 @@ describe("durable SBOM ingestion worker", () => {
 
     expect(updateJobMock).toHaveBeenCalledWith(
       { _id: "507f1f77bcf86cd799439011", workerId: expect.stringContaining("sbom-worker-") },
-      expect.objectContaining({ $set: expect.objectContaining({ status: "failed", lastError: "permanent validation conflict" }) })
+      expect.objectContaining({ $set: expect.objectContaining({ status: "failed", lastError: "SBOM persistence failed after the maximum retry count." }) })
     );
   });
 
