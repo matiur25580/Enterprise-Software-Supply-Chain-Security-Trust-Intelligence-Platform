@@ -11,6 +11,13 @@ let running = false;
 
 export async function processNextSbomIngestionJob(now = new Date()): Promise<boolean> {
   const leaseExpiredAt = new Date(now.getTime() - LEASE_DURATION_MS);
+  await SbomIngestionJob.updateMany(
+    { status: "processing", lockedAt: { $lte: leaseExpiredAt }, attempts: { $gte: 3 } },
+    {
+      $set: { status: "failed", lastError: "Worker lease expired after the maximum retry count.", completedAt: now, expiresAt: new Date(now.getTime() + RETENTION_MS) },
+      $unset: { payload: 1, lockedAt: 1, workerId: 1 }
+    }
+  );
   const job: any = await SbomIngestionJob.findOneAndUpdate(
     {
       attempts: { $lt: 3 },
