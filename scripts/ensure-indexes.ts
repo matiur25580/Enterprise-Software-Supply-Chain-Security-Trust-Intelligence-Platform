@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { connectDatabase } from "../apps/api/src/config/database";
 import { SbomRecord } from "../apps/api/src/models/SbomRecord";
+import { SbomIngestionJob } from "../apps/api/src/models/SbomIngestionJob";
 import { User } from "../apps/api/src/models/User";
 import { VulnerabilityScan } from "../apps/api/src/models/VulnerabilityScan";
 import { ArtifactVerification } from "../apps/api/src/models/ArtifactVerification";
@@ -11,7 +12,7 @@ import { ReleaseTrustPassport } from "../apps/api/src/models/ReleaseTrustPasspor
 async function main(): Promise<void> {
   if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI is required to provision database indexes.");
   await connectDatabase();
-  await Promise.all([User.createIndexes(), SbomRecord.createIndexes(), VulnerabilityScan.createIndexes(), ArtifactVerification.createIndexes(), PolicyEvaluation.createIndexes(), ReleaseTrustPassport.createIndexes()]);
+  await Promise.all([User.createIndexes(), SbomRecord.createIndexes(), SbomIngestionJob.createIndexes(), VulnerabilityScan.createIndexes(), ArtifactVerification.createIndexes(), PolicyEvaluation.createIndexes(), ReleaseTrustPassport.createIndexes()]);
   console.info("ChainProof database indexes are present.");
 }
 main().catch((error: unknown) => {
