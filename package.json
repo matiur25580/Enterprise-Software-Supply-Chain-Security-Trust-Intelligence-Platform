@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch apps/api/src/server.ts",
     "build": "npm run build:api && npm run build:web",
-    "typecheck": "tsc --noEmit -p apps/api/tsconfig.json && npm run typecheck:web && tsc --noEmit --target ES2022 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck scripts/ensure-indexes.ts scripts/evaluate-release-policy.ts scripts/verify-release-passport.ts scripts/validate-sbom.ts",
+    "typecheck": "tsc --noEmit -p apps/api/tsconfig.json && npm run typecheck:web && tsc --noEmit --target ES2022 --module commonjs --moduleResolution node --resolveJsonModule --esModuleInterop --skipLibCheck scripts/ensure-indexes.ts scripts/evaluate-release-policy.ts scripts/verify-release-passport.ts scripts/validate-sbom.ts",
     "start": "node dist/server.js",
     "user:create": "tsx scripts/create-user.ts",
     "dev:web": "vite --config apps/web/vite.config.ts",
