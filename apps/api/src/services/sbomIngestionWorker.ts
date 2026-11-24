@@ -58,7 +58,8 @@ export async function processNextSbomIngestionJob(now = new Date()): Promise<boo
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message.slice(0, 500) : "Unknown ingestion failure";
-    const terminal = job.attempts >= job.maxAttempts;
+    const duplicateDigest = typeof error === "object" && error !== null && "code" in error && error.code === 11000;
+    const terminal = job.attempts >= job.maxAttempts || duplicateDigest;
     const delayMs = Math.min(30_000, 1_000 * (2 ** Math.max(0, job.attempts - 1)));
     await SbomIngestionJob.updateOne(
       { _id: job._id, workerId },
