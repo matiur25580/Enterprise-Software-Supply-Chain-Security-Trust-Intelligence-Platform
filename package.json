@@ -14,7 +14,8 @@
     "build:web": "vite build --config apps/web/vite.config.ts",
     "typecheck:web": "tsc --noEmit -p apps/web/tsconfig.json",
     "test": "vitest run",
-    "db:indexes": "tsx scripts/ensure-indexes.ts"
+    "db:indexes": "tsx scripts/ensure-indexes.ts",
+    "test:integration": "vitest run apps/api/test/*.integration.test.ts --pool=forks --poolOptions.forks.singleFork"
   },
   "dependencies": {
     "cors": "^2.8.5",
