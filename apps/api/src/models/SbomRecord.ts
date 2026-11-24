@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import { Schema, model, models, type Model } from "mongoose";
 
 const sbomRecordSchema = new Schema({
   // Tenant ownership must be derived from authenticated server context.
@@ -27,4 +27,5 @@ const sbomRecordSchema = new Schema({
 sbomRecordSchema.index({ tenantId: 1, createdAt: -1 });
 sbomRecordSchema.index({ tenantId: 1, documentDigest: 1 }, { sparse: true });
 
-export const SbomRecord = models.SbomRecord ?? model("SbomRecord", sbomRecordSchema);
+const existingSbomRecordModel = models.SbomRecord as Model<any> | undefined;
+export const SbomRecord: Model<any> = existingSbomRecordModel ?? model<any>("SbomRecord", sbomRecordSchema);
