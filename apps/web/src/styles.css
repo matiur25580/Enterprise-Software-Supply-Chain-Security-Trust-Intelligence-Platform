@@ -28,3 +28,24 @@
 .audit-status.rejected{background:#4a292e;color:#ff9da3}
 @media(max-width:950px){.security-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.scan-summary{grid-template-columns:1fr}.audit-row{align-items:flex-start}}
+
+
+.policy-panel{margin-top:15px}
+.policy-intro{color:#9bb0c2;font-size:11px;line-height:1.6;max-width:780px}
+.policy-controls{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:14px 0}
+.policy-controls label{display:grid;gap:7px;flex:1;min-width:260px;color:#9bb0c2;font-size:10px}
+.policy-controls input{background:#0e1d2b;border:1px solid #31485c;border-radius:7px;padding:11px;color:#e5edf5;font:11px ui-monospace,monospace;min-width:0}
+.policy-result{display:grid;grid-template-columns:180px minmax(0,1fr);gap:18px;border-top:1px solid #2a4053;padding-top:16px}
+.policy-score{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.policy-score>strong{font:800 36px Manrope;color:#e8f0f7}
+.policy-score>strong small{font:500 12px Manrope;color:#8da2b5}
+.policy-score>small{font-size:9px;color:#8499ac}
+.policy-checks{display:grid;gap:8px}
+.policy-check{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;background:#102031;border:1px solid #293f53;border-radius:8px}
+.policy-check>div{display:grid;gap:4px}
+.policy-check strong{font-size:10px;color:#dce7f0}
+.policy-check small{font-size:9px;color:#91a7ba;line-height:1.5}
+.audit-status.pass{background:#1d443d;color:#8be0bf}
+.audit-status.warn{background:#4a3b25;color:#f4c77c}
+.audit-status.block{background:#4a292e;color:#ff9da3}
+@media(max-width:650px){.policy-result{grid-template-columns:1fr}}
