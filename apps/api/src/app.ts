@@ -20,7 +20,6 @@ app.use(express.json({ limit: "2mb", strict: true }));
 
 // A global ceiling also protects health, static-file and fallback handlers.
 const apiLimiter = rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false });
-app.use(apiLimiter);
 
 app.use("/api/health", apiLimiter, healthRouter);
 app.use("/api/auth", apiLimiter, authRouter);
