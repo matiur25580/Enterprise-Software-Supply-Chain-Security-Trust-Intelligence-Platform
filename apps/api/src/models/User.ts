@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import { Schema, model, models, type Model } from "mongoose";
 
 export const CHAINPROOF_ROLES = ["platform-admin", "security-analyst", "developer", "auditor"] as const;
 
@@ -13,4 +13,5 @@ const userSchema = new Schema({
 // Email is unique within a tenant, not globally across customer organizations.
 userSchema.index({ tenantId: 1, email: 1 }, { unique: true });
 
-export const User = models.User ?? model("User", userSchema);
+const existingUserModel = models.User as Model<any> | undefined;
+export const User: Model<any> = existingUserModel ?? model<any>("User", userSchema);
