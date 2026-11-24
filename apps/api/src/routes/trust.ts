@@ -62,6 +62,7 @@ trustRouter.post("/verify-artifact-signature", authorize("platform-admin", "secu
       }
       return;
     }
+    console.error("Artifact signature verification failed:", error instanceof Error ? error.message : "unknown error");
     response.status(500).json({ error: "Unable to complete artifact signature verification" });
   }
 });
@@ -124,6 +125,7 @@ trustRouter.post("/verify-slsa-provenance", authorize("platform-admin", "securit
       }
       return;
     }
+    console.error("SLSA provenance verification failed:", error instanceof Error ? error.message : "unknown error");
     response.status(500).json({ error: "Unable to complete provenance verification" });
   }
 });
