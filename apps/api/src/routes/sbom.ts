@@ -125,7 +125,7 @@ sbomRouter.get("/:id/vulnerability-scans", authorize("platform-admin", "security
     return;
   }
   try {
-    const record = await SbomRecord.findOne({ _id: request.params.id, tenantId: request.auth!.tenantId }).select({ _id: 1 }).lean();
+    const record: any = await SbomRecord.findOne({ _id: request.params.id, tenantId: request.auth!.tenantId }).select({ _id: 1 }).lean();
     if (!record) {
       response.status(404).json({ error: "SBOM record not found" });
       return;
