@@ -1,8 +1,11 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 type User = { id: string; tenantId: string; email: string; role: string };
 type Sbom = { _id: string; format: "cyclonedx" | "spdx"; formatVersion: string; documentName: string; documentVersion?: string; componentCount: number; documentDigest?: string; ingestionStatus: string; createdAt: string };
 type Health = { status: string; database: string; service: string };
+type Finding = { purl: string; id: string; summary?: string; aliases: string[]; severity: string; cvssScore?: number; epssScore?: number; epssPercentile?: number; isKnownExploited: boolean; references: string[] };
+type ScanResult = { status: string; scanId: string; scannedAt: string; scannedPackages: number; vulnerablePackages: number; findingCount: number; findings: Finding[] };
+type Verification = { _id: string; artifactDigest: string; verificationType: string; status: string; certificateIdentity?: string; builderId?: string; failureCode?: string; createdAt: string };
 const API = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function api<T>(path: string, token?: string, init: RequestInit = {}): Promise<T> {
@@ -24,6 +27,9 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [sboms, setSboms] = useState<Sbom[]>([]);
+  const [latestScan, setLatestScan] = useState<ScanResult | null>(null);
+  const [verificationHistory, setVerificationHistory] = useState<Verification[]>([]);
+  const [selectedSbom, setSelectedSbom] = useState("");
   const [search, setSearch] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
   const [tenantId, setTenantId] = useState("");
@@ -37,12 +43,14 @@ export default function App() {
     const params = new URLSearchParams({ limit: "50" });
     if (q.trim()) params.set("q", q.trim());
     if (format) params.set("format", format);
-    const [h, list] = await Promise.all([
+    const [h, list, trust] = await Promise.all([
       api<Health>("/api/health"),
-      api<{ items: Sbom[] }>(`/api/sboms?${params.toString()}`, accessToken)
+      api<{ items: Sbom[] }>(`/api/sboms?${params.toString()}`, accessToken),
+      api<{ items: Verification[] }>("/api/trust/verifications?limit=10", accessToken)
     ]);
     setHealth(h);
     setSboms(list.items);
+    setVerificationHistory(trust.items);
   }, []);
 
   useEffect(() => {
@@ -77,6 +85,31 @@ export default function App() {
     finally { setBusy(false); }
   }
 
+  async function uploadSbomDocument(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    if (!file || !token) return;
+    setBusy(true); setNotice("");
+    try {
+      if (file.size > 2 * 1024 * 1024) throw new Error("SBOM JSON file must be 2 MiB or smaller.");
+      const document = JSON.parse(await file.text()) as unknown;
+      await api("/api/sboms/document", token, { method: "POST", body: JSON.stringify({ document, source: file.name }) });
+      await refresh(token, search, formatFilter);
+      setNotice("SBOM JSON parsed, normalized and saved. Raw document bytes are not retained.");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Could not ingest SBOM JSON"); }
+    finally { setBusy(false); event.currentTarget.value = ""; }
+  }
+
+  async function scanSbom(id: string) {
+    if (!token) return;
+    setBusy(true); setNotice(""); setSelectedSbom(id);
+    try {
+      const result = await api<ScanResult>(`/api/sboms/${id}/vulnerabilities`, token, { method: "POST" });
+      setLatestScan(result);
+      setNotice(`OSV scan completed: ${result.findingCount} findings across ${result.scannedPackages} packages.`);
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Vulnerability scan failed"); }
+    finally { setBusy(false); }
+  }
+
   async function exportCsv() {
     if (!token) return;
     try {
@@ -90,7 +123,7 @@ export default function App() {
     } catch (error) { setNotice(error instanceof Error ? error.message : "Export failed"); }
   }
 
-  function signOut() { setToken(""); setUser(null); setSboms([]); setNotice("Signed out."); }
+  function signOut() { setToken(""); setUser(null); setSboms([]); setLatestScan(null); setVerificationHistory([]); setNotice("Signed out."); }
 
   return <main className="shell">
     <aside className="sidebar">
@@ -98,8 +131,8 @@ export default function App() {
       <div className="nav-label">WORKSPACE</div>
       <div className="nav-item active"><span>◈</span> Command center</div>
       <div className="nav-item"><span>▤</span> SBOM inventory</div>
-      <div className="nav-item muted"><span>⌁</span> Provenance <em>Planned</em></div>
-      <div className="nav-item muted"><span>⌖</span> Vulnerability intel <em>Planned</em></div>
+      <div className="nav-item"><span>⌁</span> Provenance</div>
+      <div className="nav-item"><span>⌖</span> Vulnerability intel</div>
       <div className="sidebar-bottom"><span className="status-dot"></span> API workspace <small>{health?.database ?? "checking"}</small></div>
     </aside>
     <section className="content">
@@ -117,6 +150,10 @@ export default function App() {
         </section>
         <section className="work-grid">
           <article className="panel"><div className="panel-head"><div><span className="eyebrow">INVENTORY INTAKE</span><h3>Add SBOM metadata</h3></div><span className="pill">Metadata only</span></div>
+            <div className="sbom-form" style={{ marginBottom: 18 }}>
+              <label>Upload CycloneDX / SPDX JSON (max 2 MiB)<input type="file" accept=".json,application/json" onChange={uploadSbomDocument} disabled={busy} /></label>
+              <small style={{ color: "#8195a9", lineHeight: 1.5 }}>JSON documents are normalized on intake. Raw SBOM content is not retained.</small>
+            </div>
             <form className="sbom-form" onSubmit={submitSbom}>
               <label>Document name<input required maxLength={200} value={form.documentName} onChange={e=>setForm({...form,documentName:e.target.value})} placeholder="payments-service" /></label>
               <div className="two-col"><label>Format<select value={form.format} onChange={e=>setForm({...form,format:e.target.value})}><option value="cyclonedx">CycloneDX</option><option value="spdx">SPDX</option></select></label><label>Format version<input required value={form.formatVersion} onChange={e=>setForm({...form,formatVersion:e.target.value})} /></label></div>
@@ -127,7 +164,7 @@ export default function App() {
           </article>
           <article className="panel"><div className="panel-head"><div><span className="eyebrow">RECENT ACTIVITY</span><h3>SBOM inventory</h3></div><div className="inventory-actions"><button className="ghost" onClick={()=>refresh(token, search, formatFilter)}>Search ↻</button><button className="ghost" onClick={exportCsv}>Export CSV ↓</button></div></div>
             <div className="inventory-filters"><input aria-label="Search SBOM documents" placeholder="Search document names…" value={search} onChange={e=>setSearch(e.target.value)} /><select aria-label="Filter SBOM format" value={formatFilter} onChange={e=>setFormatFilter(e.target.value)}><option value="">All formats</option><option value="cyclonedx">CycloneDX</option><option value="spdx">SPDX</option></select></div>
-            {sboms.length ? <div className="table-wrap"><table><thead><tr><th>DOCUMENT</th><th>FORMAT</th><th>COMPONENTS</th><th>STATUS</th></tr></thead><tbody>{sboms.map(item=><tr key={item._id}><td><strong>{item.documentName}</strong><small>{item.documentVersion || "No version"} · {new Date(item.createdAt).toLocaleDateString()}</small></td><td>{item.format.toUpperCase()}</td><td>{item.componentCount.toLocaleString()}</td><td><span className="status-pill">{item.ingestionStatus}</span></td></tr>)}</tbody></table></div> : <div className="empty"><span>▤</span><strong>No SBOM metadata yet</strong><p>Save your first record to populate this tenant-scoped inventory.</p></div>}
+            {sboms.length ? <div className="table-wrap"><table><thead><tr><th>DOCUMENT</th><th>FORMAT</th><th>COMPONENTS</th><th>STATUS</th><th>SECURITY</th></tr></thead><tbody>{sboms.map(item=><tr key={item._id}><td><strong>{item.documentName}</strong><small>{item.documentVersion || "No version"} · {new Date(item.createdAt).toLocaleDateString()}</small></td><td>{item.format.toUpperCase()}</td><td>{item.componentCount.toLocaleString()}</td><td><span className="status-pill">{item.ingestionStatus}</span></td><td><button className="ghost" disabled={busy} onClick={()=>scanSbom(item._id)}>Scan OSV ↗</button></td></tr>)}</tbody></table></div> : <div className="empty"><span>▤</span><strong>No SBOM metadata yet</strong><p>Save your first record to populate this tenant-scoped inventory.</p></div>}
           </article>
         </section>
       </>}
