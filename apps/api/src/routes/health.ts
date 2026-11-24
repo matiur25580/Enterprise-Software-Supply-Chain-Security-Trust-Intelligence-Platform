@@ -12,3 +12,12 @@ healthRouter.get("/", (_request, response) => {
     timestamp: new Date().toISOString()
   });
 });
+healthRouter.get("/ready", (_request, response) => {
+  const ready = isDatabaseConnected();
+  response.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "not-ready",
+    service: "chainproof-api",
+    database: ready ? "connected" : "not-connected",
+    timestamp: new Date().toISOString()
+  });
+});
