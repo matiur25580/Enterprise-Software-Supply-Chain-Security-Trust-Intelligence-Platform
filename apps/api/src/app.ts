@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 import fs from "node:fs";
 import path from "node:path";
 import { authenticate } from "./middleware/authenticate";
@@ -16,6 +17,9 @@ app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") ?? false }));
 app.use(express.json({ limit: "2mb", strict: true }));
+
+// A global ceiling also protects health, static-file and fallback handlers.
+app.use(rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false }));
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authRouter);
