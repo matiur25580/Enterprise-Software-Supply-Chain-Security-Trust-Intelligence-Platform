@@ -39,6 +39,23 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
     expect(tenantB.body.items.map((item: { documentName: string }) => item.documentName)).toEqual(["billing-api"]);
   });
 
+  it("ingests and normalizes a CycloneDX document into tenant-scoped inventory", async () => {
+    const response = await request(app).post("/api/sboms/document").set("x-test-tenant", "tenant-a").send({
+      document: {
+        bomFormat: "CycloneDX", specVersion: "1.6",
+        metadata: { component: { name: "checkout", version: "3.2.1" } },
+        components: [{ type: "library", name: "express", version: "4.21.2", purl: "pkg:npm/express@4.21.2" }]
+      }
+    });
+    expect(response.status).toBe(201);
+    expect(response.body.item.ingestionStatus).toBe("validated");
+    expect(response.body.item.normalizedComponents[0].purl).toBe("pkg:npm/express@4.21.2");
+    const inventory = await request(app).get("/api/sboms").set("x-test-tenant", "tenant-a");
+    expect(inventory.body.items[0].documentName).toBe("checkout");
+    const otherTenant = await request(app).get("/api/sboms").set("x-test-tenant", "tenant-b");
+    expect(otherTenant.body.items).toHaveLength(0);
+  });
+
   it("enforces the tenant-scoped unique digest index", async () => {
     const digest = "b".repeat(64);
     const body = { format: "spdx", formatVersion: "2.3", documentName: "shared-lib", componentCount: 1, documentDigest: digest };
