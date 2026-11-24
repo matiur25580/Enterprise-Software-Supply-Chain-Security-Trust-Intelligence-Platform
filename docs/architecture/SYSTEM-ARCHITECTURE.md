@@ -16,14 +16,16 @@ flowchart TB
         Edge["HTTPS boundary · CORS · Helmet · rate limits"]
         Auth["JWT authentication · role authorization"]
         Validate["Zod request validation"]
-        SBOM["SBOM intake · bounded enqueue"]\n        SBOMWorker["Background worker · official schema validation · normalization"]
+        SBOM["SBOM intake · bounded enqueue"]
+        SBOMWorker["Background worker · official schema validation · normalization"]
         Vuln["Vulnerability intelligence · scan snapshots"]
         Verify["Artifact trust verification · Cosign / SLSA"]
         Policy["Deterministic release-policy evaluation"]
         Passport["Signed Release Trust Passport · Ed25519"]
         Signers["Tenant-scoped signer registry"]
         Edge --> Auth --> Validate
-        Validate --> SBOM\n        SBOM --> SBOMWorker
+        Validate --> SBOM
+        SBOM --> SBOMWorker
         Validate --> Vuln
         Validate --> Verify
         Validate --> Policy
