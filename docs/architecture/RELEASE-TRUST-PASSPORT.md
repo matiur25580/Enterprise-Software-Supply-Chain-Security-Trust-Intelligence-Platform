@@ -36,21 +36,42 @@ Do not commit the private key or place it in logs, shell history or screenshots.
 
 All endpoints require authentication and enforce role permissions. Passport lookup and evidence selection are tenant-scoped. The passport contains no raw SBOM document, artifact bytes, credentials or signing private key.
 
-## Offline verification
+## Offline verification and trust decisions
 
-Save the returned response as `release-passport.json` and run:
+Save the returned response as `release-passport.json`. A basic offline check validates the signature and embedded key fingerprint:
 
 ```bash
 npm run passport:verify -- --file ./release-passport.json
 ```
 
-Exit codes: 0 = valid signature and fingerprint; 1 = invalid command/file/JSON; 2 = invalid signature or tampered payload. Offline verification checks cryptographic integrity and key consistency. It does not decide whether the key is trusted or whether the policy is adequate.
+Cryptographic validity alone does not establish publisher trust. For a trust decision, distribute an authenticated trust-store JSON file to the verifier. The file uses this format:
+
+```json
+{
+  "schemaVersion": "chainproof.release-passport-trust-store/v1",
+  "keys": [
+    { "keyId": "<64-character-sha256-fingerprint>", "status": "active" },
+    { "keyId": "<previous-fingerprint>", "status": "retired" },
+    { "keyId": "<compromised-fingerprint>", "status": "revoked" }
+  ]
+}
+```
+
+Then require a registered, non-revoked signer:
+
+```bash
+npm run passport:verify -- --file ./release-passport.json \\
+  --trust-store ./release-passport-trust-store.json --require-trusted
+```
+
+The verifier accepts `active` and `retired` keys, rejects `revoked` and `unregistered` keys, and reports a separate trust status. A retired key remains valid for historical passports; it must not be used for new issuance. `--require-trusted` fails closed if the trust store is missing. Keep the trust store itself integrity-protected and distribute it through an authenticated channel; do not trust a registry file supplied alongside an untrusted passport.
+
+Exit codes: 0 = signature valid and any requested trust requirement satisfied; 1 = invalid command/file/JSON/trust-store format; 2 = invalid signature or tampered payload; 3 = signer is revoked/unregistered or required trust is not established. Without `--trust-store`, the CLI reports `trustStatus: "not_checked"` and only establishes cryptographic integrity.
 
 ## Operational controls and limitations
 
 - Keep the private key in a secret manager; use a separate key per environment.
-- Distribute the key fingerprint through an authenticated channel and maintain an explicit trusted-key registry in downstream consumers.
-- Preserve old public-key fingerprints for verification after key rotation.
+- Distribute signer fingerprints and statuses through an authenticated channel; preserve retired public-key fingerprints for historical verification.
 - Restrict passport issuance to authenticated security roles; reads are tenant-scoped and auditor-readable.
 - The current passport includes up to 100 advisory summaries to bound payload size.
 - It references a policy evaluation snapshot and the latest available scan/provenance metadata; it does not re-run upstream scans.
