@@ -48,6 +48,7 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 - **Cosign artifact signature verification:** verify a Sigstore/Cosign detached signature bundle against the exact supplied artifact bytes and server-configured certificate issuer/identity.
 - **SLSA provenance verification:** verify a signed in-toto SLSA provenance v1 DSSE bundle, match its subject SHA-256 digest to the artifact bytes, and enforce an explicit builder allowlist.
 - **Trust audit history:** persist successful and rejected verification outcomes with artifact digest, signer policy, builder identity and source revision metadata; submitted artifact and bundle bytes are not retained.
+- **Deterministic release policy:** evaluate tenant-owned SBOM scan evidence and a matching verified SLSA provenance record using versioned rules; persist pass/warn/block outcomes with check-level evidence.
 - **Abuse controls:** bounded request payloads and rate-limited intake/login endpoints.
 - **Operational health:** API health and database-aware readiness endpoints.
 - **Container foundation:** multi-stage Docker build, non-root runtime and Compose-managed MongoDB.
@@ -61,7 +62,7 @@ ChainProof is designed around evidence-backed answers rather than opaque risk sc
 - NVD enrichment, deployment-aware exploitability context and policy-based prioritization of persisted findings.
 - OCI image signature verification and registry-aware Cosign verification.
 - Full SLSA build-level policy evaluation, source-control protections and deployment-aware release gates.
-- Policy-as-code with versioned controls, explainable decisions and signed release attestations.
+- Configurable policy authoring, approval workflows, risk exceptions and signed release attestations.
 - Risk exceptions with owners, expiry, compensating controls and approval history.
 - Evidence retention, audit export, alerting and integrations with GitHub and CI/CD systems.
 
@@ -82,7 +83,7 @@ Express + TypeScript API
           |
           v
        MongoDB
-  users / SBOMs / vulnerability scans / trust audit
+  users / SBOMs / vulnerability scans / trust audit / policy evaluations
 ```
 
 ### Technology stack
@@ -121,7 +122,7 @@ Production automatic index creation is disabled. Run the explicit index provisio
 MONGODB_URI='mongodb://127.0.0.1:27017/chainproof' npm run db:indexes
 ```
 
-The command provisions declared user, SBOM, vulnerability scan and artifact verification indexes and exits non-zero if provisioning fails. Review index changes and database permissions before production rollout.
+The command provisions declared user, SBOM, vulnerability scan, artifact verification and policy evaluation indexes and exits non-zero if provisioning fails. Review index changes and database permissions before production rollout.
 
 ## 6. Quick start
 
@@ -232,7 +233,45 @@ jq -n --arg artifactBase64 "$(base64 -w0 release.tar.gz)" \
       -H 'Content-Type: application/json' --data-binary @-
 ```
 
-The latest verification audit records from both endpoints are available from `GET /api/trust/verifications`; results are always scoped to the authenticated tenant. The service does not store artifact bytes or the submitted bundle. The verifier checks the Sigstore certificate identity/issuer policy and signed SLSA subject digest; it does not yet enforce every SLSA build requirement or act as an automated release gate.
+The latest verification audit records from both endpoints are available from `GET /api/trust/verifications`; results are always scoped to the authenticated tenant. The service does not store artifact bytes or the submitted bundle. The verifier checks the Sigstore certificate identity/issuer policy and signed SLSA subject digest; it does not enforce every SLSA build requirement. The separate deterministic release policy endpoint combines persisted vulnerability scan evidence with a matching verified SLSA record and returns an auditable pass/warn/block result; it is a starter policy, not a complete enterprise release-control framework.
+
+### Evaluate release readiness with the deterministic policy engine
+
+The policy engine is deliberately separate from cryptographic verification: Sigstore establishes whether the artifact's signed provenance is trusted; the policy engine decides whether the available security evidence meets the current release rules.
+
+**Policy version:** `chainproof-release-v1`
+
+| Rule | Result |
+|---|---|
+| No completed vulnerability scan | Block |
+| No verified SLSA provenance for the exact artifact SHA-256 | Block |
+| CISA KEV-listed vulnerability | Block |
+| CVSS >= 9.0 | Block |
+| EPSS >= 0.80 | Block |
+| CVSS >= 7.0 or EPSS >= 0.50 | Warn |
+| Scan older than 30 days | Warn |
+| Recent scan, no blocking/warning findings and matching provenance | Pass |
+
+The risk score is a transparent maximum-severity indicator (0–100), not a probability. Every evaluation stores the policy version, artifact digest, individual checks and evidence in a tenant-scoped audit record. A pass is only a result under this starter policy; it is not a claim of regulatory compliance or proof that all production release risks are covered.
+
+**API request:**
+
+```bash
+curl -X POST http://localhost:4000/api/policy/evaluate-release \
+  -H 'Authorization: Bearer <access-token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"sbomId":"<24-character-sbom-id>","artifactDigest":"<64-character-artifact-sha256>"}'
+```
+
+**Command-line workflow:** export a short-lived API token into the environment (do not put it in shell history or command arguments), then evaluate:
+
+```bash
+export CHAINPROOF_API_URL='http://localhost:4000'
+export CHAINPROOF_TOKEN='<access-token>'
+npm run policy:evaluate -- --sbom-id '<24-character-sbom-id>' --artifact-sha256 '<64-character-artifact-sha256>'
+```
+
+The CLI prints the full JSON decision. Exit codes: `0` for pass/warn or a successful API response, `1` for input/network/API errors, and `2` when the policy outcome is block. The audit history is available from `GET /api/policy/evaluations` and is restricted to the authenticated tenant.
 
 ## 7. Environment configuration
 
@@ -252,6 +291,7 @@ Never use the example JWT value outside local setup. Production should use manag
 ```bash
 npm test
 MONGODB_URI=mongodb://127.0.0.1:27017/chainproof_test npm run test:integration
+npm run policy:evaluate -- --sbom-id '<24-character-sbom-id>' --artifact-sha256 '<64-character-artifact-sha256>'
 npm run typecheck
 npm run build
 npm run db:indexes
