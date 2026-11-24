@@ -26,7 +26,18 @@ ChainProof is designed to help engineering and security teams inventory software
 - **Incident evidence:** preserve correlated findings, decisions and investigation history.
 - **AI-assisted explanation:** produce evidence-linked summaries with human oversight for consequential actions.
 
-## 4. Technology direction
+## 4. Current implementation snapshot
+
+The foundation branch currently contains:
+- A pnpm/Turborepo workspace with a React 19 + Vite web application and an Express 5 API.
+- An initial Security Command Center interface with posture metrics, risk distribution, posture trend, prioritized findings and recent activity.
+- Responsive workspace navigation and a searchable vulnerability sample table.
+- Baseline API hardening including Zod environment validation, Helmet, explicit CORS configuration, bounded JSON parsing and structured logging with sensitive-field redaction.
+- Local MongoDB and Redis development services, plus a GitHub Actions typecheck/build workflow.
+
+The dashboard uses illustrative/sample data. Live vulnerability feeds, cryptographic provenance verification, policy enforcement, production telemetry and production deployment are not established by this foundation milestone. See [architecture notes](docs/architecture/README.md), [UI foundation](docs/architecture/UI-FOUNDATION.md) and the [initial threat model](docs/security/THREAT-MODEL.md).
+
+## 5. Technology direction
 
 - Web: React, TypeScript, Vite and Tailwind CSS.
 - API: Node.js, Express, TypeScript and Zod.
@@ -36,7 +47,7 @@ ChainProof is designed to help engineering and security teams inventory software
 
 Confirm actual package versions and enabled integrations from the checked-out branch and environment configuration.
 
-## 5. Architecture and security principles
+## 6. Architecture and security principles
 
 1. Enforce tenant isolation and authorization in service and data-access layers.
 2. Never execute untrusted repositories, build scripts or uploaded artifacts inside the API process.
@@ -47,11 +58,11 @@ Confirm actual package versions and enabled integrations from the checked-out br
 7. Separate AI explanations from trusted verification and release-policy decisions.
 8. Make security exceptions time-bound, attributable and reviewable.
 
-## 6. Repository layout
+## 7. Repository layout
 
 The project is organized as a monorepo with API and web applications, shared tooling/contracts, infrastructure and architecture/security documentation. Refer to the selected branch for the current exact layout.
 
-## 7. Local development
+## 8. Local development
 
 1. Install the Node.js and package-manager versions declared by the workspace.
 2. Review `.env.example` files and configure local-only credentials and services.
@@ -62,7 +73,7 @@ The project is organized as a monorepo with API and web applications, shared too
 
 Do not commit provider tokens, private keys, signing material, production SBOMs or confidential source metadata.
 
-## 8. Verification and release-quality strategy
+## 9. Verification and release-quality strategy
 
 - Validate SBOM schemas and normalize package identifiers before correlation.
 - Verify artifact digest and signature against trusted identity policy.
@@ -71,7 +82,7 @@ Do not commit provider tokens, private keys, signing material, production SBOMs 
 - Exercise tenant boundaries, exception expiry and policy-version changes.
 - Monitor dependency advisories and keep CI actions and build tooling maintained.
 
-## 9. Illustrative dashboard gallery
+## 10. Illustrative dashboard gallery
 
 The 12 SVGs below are **illustrative dashboard concepts**, not production screenshots. All values, components and events are synthetic. The single-column gallery is intended for full-width review.
 
@@ -123,11 +134,11 @@ A timeline concept for correlated alerts, investigation notes and evidence refer
 A summary of control coverage, evidence freshness and audit-ready release signals.
 ![ChainProof compliance assurance report](docs/assets/dashboard/12-compliance-assurance-report.svg)
 
-## 10. Documentation and contribution
+## 11. Documentation and contribution
 
 Review `docs/architecture` and `docs/security` for current design decisions. Follow [SECURITY.md](SECURITY.md) for responsible disclosure and [CONTRIBUTING.md](CONTRIBUTING.md) for engineering and pull-request expectations.
 
-## 11. Roadmap themes
+## 12. Roadmap themes
 
 - Expand SBOM ingestion and component normalization coverage.
 - Improve provenance verification and trusted-builder policy.
@@ -135,6 +146,6 @@ Review `docs/architecture` and `docs/security` for current design decisions. Fol
 - Strengthen ingestion sandboxing, tenant isolation and abuse controls.
 - Improve end-to-end coverage, observability and operational recovery.
 
-## 12. License
+## 13. License
 
 No open-source license is applied unless a license file is present. All rights are otherwise reserved.
