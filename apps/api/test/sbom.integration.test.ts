@@ -56,7 +56,7 @@ describe.skipIf(!mongoAvailable)("ChainProof MongoDB integration", () => {
         dependencies: [{ ref: "pkg:express", dependsOn: ["pkg:lodash"] }]
       }
     });
-    expect(response.status).toBe(201);
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
     expect(response.body.item.ingestionStatus).toBe("validated");
     expect(response.body.item.normalizedComponents[0].purl).toBe("pkg:npm/express@4.21.2");
     expect(response.body.item.normalizedDependencies).toEqual([{ from: "pkg:express", to: "pkg:lodash", relationshipType: "dependsOn" }]);
