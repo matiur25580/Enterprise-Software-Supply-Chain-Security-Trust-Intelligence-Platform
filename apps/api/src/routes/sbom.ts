@@ -108,6 +108,7 @@ sbomRouter.post("/:id/vulnerabilities", authorize("platform-admin", "security-an
       findings
     });
   } catch (error) {
+    console.error("SBOM vulnerability scan failed:", error instanceof Error ? error.message : "unknown error");
     if (error instanceof OsvServiceError) {
       response.status(502).json({ error: "Vulnerability lookup could not be completed", reason: error.message });
       return;
