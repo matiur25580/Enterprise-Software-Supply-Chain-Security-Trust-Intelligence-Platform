@@ -6,11 +6,13 @@ vi.mock("../src/models/SbomRecord", () => ({ SbomRecord: { findOne: vi.fn() } })
 vi.mock("../src/models/VulnerabilityScan", () => ({ VulnerabilityScan: { findOne: vi.fn() } }));
 vi.mock("../src/models/ArtifactVerification", () => ({ ArtifactVerification: { findOne: vi.fn() } }));
 vi.mock("../src/models/PolicyEvaluation", () => ({ PolicyEvaluation: { create: vi.fn(), find: vi.fn() } }));
+vi.mock("../src/models/VexRiskAcceptance", () => ({ VexRiskAcceptance: { find: vi.fn() } }));
 
 import { SbomRecord } from "../src/models/SbomRecord";
 import { VulnerabilityScan } from "../src/models/VulnerabilityScan";
 import { ArtifactVerification } from "../src/models/ArtifactVerification";
 import { PolicyEvaluation } from "../src/models/PolicyEvaluation";
+import { VexRiskAcceptance } from "../src/models/VexRiskAcceptance";
 import { policyRouter } from "../src/routes/policy";
 
 const app = express();
@@ -34,6 +36,7 @@ describe("release policy API", () => {
     vi.mocked(SbomRecord.findOne).mockReturnValue({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: sbomId }) }) } as never);
     vi.mocked(VulnerabilityScan.findOne).mockReturnValue(query({ scannedAt: new Date(), findings: [] }) as never);
     vi.mocked(ArtifactVerification.findOne).mockReturnValue(query({ artifactDigest: digest, status: "verified", verificationType: "sigstore-slsa-provenance" }) as never);
+    vi.mocked(VexRiskAcceptance.find).mockReturnValue({ lean: vi.fn().mockResolvedValue([]) } as never);
     vi.mocked(PolicyEvaluation.create).mockResolvedValue({ _id: "evaluation-1" } as never);
 
     const response = await request(app).post("/api/policy/evaluate-release").send({ sbomId, artifactDigest: digest });
@@ -48,6 +51,7 @@ describe("release policy API", () => {
     vi.mocked(SbomRecord.findOne).mockReturnValue({ select: vi.fn().mockReturnValue({ lean: vi.fn().mockResolvedValue({ _id: sbomId }) }) } as never);
     vi.mocked(VulnerabilityScan.findOne).mockReturnValue(query(null) as never);
     vi.mocked(ArtifactVerification.findOne).mockReturnValue(query(null) as never);
+    vi.mocked(VexRiskAcceptance.find).mockReturnValue({ lean: vi.fn().mockResolvedValue([]) } as never);
     vi.mocked(PolicyEvaluation.create).mockResolvedValue({ _id: "evaluation-2" } as never);
 
     const response = await request(app).post("/api/policy/evaluate-release").send({ sbomId, artifactDigest: digest });
